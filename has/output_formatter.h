@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2020 Takayuki Nagata All rights reserved.
+ */
+
 #ifndef _OUTPUT_FORMATTER_H
 #define _OUTPUT_FORMATTER_H
 

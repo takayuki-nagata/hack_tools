@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2020 Takayuki Nagata All rights reserved.
+ */
+
 #ifndef _SYMBOL_TABLE_H
 #define _SYMBOL_TABLE_H
 

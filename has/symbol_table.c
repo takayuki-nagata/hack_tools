@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2020 Takayuki Nagata All rights reserved.
+ */
+
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>

@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2020 Takayuki Nagata All rights reserved.
+ */
+
 #ifndef _CODE_H
 #define _CODE_H
 

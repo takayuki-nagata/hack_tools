@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2020 Takayuki Nagata All rights reserved.
+ */
+
 #ifndef _PARSER_H
 #define _PARSER_H
 

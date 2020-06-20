@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2020 Takayuki Nagata All rights reserved.
+ */
+
 #include <stdint.h>
 #include <stdio.h>
 #include "output_formatter.h"

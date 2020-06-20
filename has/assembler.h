@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2020 Takayuki Nagata All rights reserved.
+ */
+
 #ifndef _ASSEMBLER_H
 #define _ASSEMBLER_H
 

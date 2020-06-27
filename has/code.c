@@ -78,7 +78,7 @@ const instruction_table_t dest_tbl[] = {
 
 const instruction_table_t jump_tbl[] = {
 	{ "JGT", 00|00|J3 },
-	{ "JEG", 00|J2|00 },
+	{ "JEQ", 00|J2|00 },
 	{ "JGE", 00|J2|J3 },
 	{ "JLT", J1|00|00 },
 	{ "JNE", J1|00|J3 },

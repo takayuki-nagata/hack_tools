@@ -8,6 +8,6 @@
 #include <stdio.h>
 #include "output_formatter.h"
 
-extern void assembler(char *infile_name, FILE *outfile, output_formatter_t formatter);
+extern void assembler(char *infile_name, FILE *outfile, output_formatter *formatter);
 
 #endif /* _ASSEMBLER_H */

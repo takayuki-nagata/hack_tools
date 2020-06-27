@@ -12,7 +12,7 @@
 
 char *opt_infile_name;
 char *opt_outfile_name;
-output_formatter_t opt_formatter;
+output_formatter *opt_formatter;
 bool opt_stdout;
 
 void show_usage(void)
@@ -21,6 +21,7 @@ void show_usage(void)
 		"Usage: has [OPTION]... FILE\n"
 		"  -o, --outfile=FILE       output to FILE.\n"
 		"  -r, --raw                use raw binary format.\n"
+		"  -c, --coe                use coe format.\n"
 		"  -s, --stdout             output fo stdout instead of file.\n"
 		);
 }
@@ -71,12 +72,13 @@ void set_options(int argc, char*argv[])
 	char outfile_suffix[10];
 	static struct option long_options[] = {
 		{"outfile", required_argument, 0, 'o'},
-		{"raw",    required_argument, 0, 'r'},
-		{"stdout", no_argument,       0, 's'},
+		{"raw",     no_argument,       0, 'r'},
+		{"coe",     no_argument,       0, 'c'},
+		{"stdout",  no_argument,       0, 's'},
 		{0, 0, 0, 0},
 	};
 
-	while ((opt = getopt_long(argc, argv, "or",
+	while ((opt = getopt_long(argc, argv, "orc",
 					long_options, NULL)) != -1) {
 		switch (opt) {
 		case 'o':
@@ -85,6 +87,10 @@ void set_options(int argc, char*argv[])
 		case 'r':
 			opt_formatter = get_output_formatter(RAW);
 			strcpy(outfile_suffix, ".bin");
+			break;
+		case 'c':
+			opt_formatter = get_output_formatter(COE);
+			strcpy(outfile_suffix, ".coe");
 			break;
 		case 's':
 			opt_stdout = true;

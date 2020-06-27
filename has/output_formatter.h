@@ -10,10 +10,16 @@
 
 typedef enum {
 	HACK = 0,
-	RAW
+	RAW,
+	COE,
 } output_format_type;
 
-typedef void (*output_formatter_t)(uint16_t binary, FILE *outfile);
-extern output_formatter_t get_output_formatter(output_format_type type);
+typedef struct {
+	void (*header) (FILE *outfile);
+	void (*body) (uint16_t binary, FILE *outfile);
+	void (*footer) (FILE *outfile);
+} output_formatter;
+
+extern output_formatter* get_output_formatter(output_format_type type);
 
 #endif /* _OUTPUT_FORMATTER_H */

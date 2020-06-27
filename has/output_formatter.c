@@ -16,14 +16,20 @@ static void btoa(uint16_t binary, char *str)
 }
 
 
-static void hack_formatter(uint16_t binary, FILE *outfile)
+static void hack_body(uint16_t binary, FILE *outfile)
 {
 	char outstr[17];
 	btoa(binary, outstr);
 	fprintf(outfile, "%s\n", outstr);
 }
 
-static void raw_formatter(uint16_t binary, FILE *outfile)
+output_formatter hack_formatter = {
+	NULL,
+	hack_body,
+	NULL,
+};
+
+static void raw_body(uint16_t binary, FILE *outfile)
 {
 	char upper, lower;
 	upper = (char)((binary & 0xff00) >> 8);
@@ -32,16 +38,47 @@ static void raw_formatter(uint16_t binary, FILE *outfile)
 	fputc(lower, outfile);
 }
 
-output_formatter_t get_output_formatter(output_format_type type)
+output_formatter raw_formatter = {
+	NULL,
+	raw_body,
+	NULL,
+};
+
+static void coe_header(FILE *outfile)
 {
-	output_formatter_t formatter;
+	fprintf(outfile, "memory_initialization_radix=16;\n");
+	fprintf(outfile, "memory_initialization_vector=\n");
+}
+
+static void coe_body(uint16_t binary, FILE *outfile)
+{
+	fprintf(outfile, "%04x,\n", binary);
+}
+
+static void coe_footer(FILE *outfile)
+{
+	fprintf(outfile, ";");
+}
+
+output_formatter coe_formatter = {
+	coe_header,
+	coe_body,
+	coe_footer,
+};
+
+output_formatter* get_output_formatter(output_format_type type)
+{
+	output_formatter *formatter;
 	switch (type)
 	{
 	case HACK:
-		formatter = hack_formatter;
+		formatter = &hack_formatter;
 		break;
 	case RAW:
-		formatter = raw_formatter;
+		formatter = &raw_formatter;
+		break;
+	case COE:
+		formatter = &coe_formatter;
 		break;
 	default:
 		formatter = NULL;

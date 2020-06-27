@@ -48,7 +48,7 @@ void phase1(char *infile_name)
 	parser_close();
 }
 
-void phase2(char *infile_name, FILE *outfile, output_formatter_t formatter)
+void phase2(char *infile_name, FILE *outfile, output_formatter *formatter)
 {
 	char *comp_str, *dest_str, *jump_str, *symbol;
 	uint16_t comp_bin, dest_bin, jump_bin;
@@ -86,15 +86,21 @@ void phase2(char *infile_name, FILE *outfile, output_formatter_t formatter)
 		case L_COMMAND:
 			continue;
 		}
-		formatter(binary, outfile);
+		formatter->body(binary, outfile);
 	}
 	parser_close();
 }
 
-void assembler(char *infile_name, FILE *outfile, output_formatter_t formatter)
+void assembler(char *infile_name, FILE *outfile, output_formatter *formatter)
 {
+	if (formatter->header)
+		formatter->header(outfile);
+
 	symbol_table_open();
 	phase1(infile_name);
 	phase2(infile_name, outfile, formatter);
 	symbol_table_close();
+
+	if (formatter->footer)
+		formatter->footer(outfile);
 }

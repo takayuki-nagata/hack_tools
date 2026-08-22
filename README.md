@@ -3,6 +3,8 @@
 [![CI](https://github.com/takayuki-nagata/hack_tools/actions/workflows/ci.yml/badge.svg)](https://github.com/takayuki-nagata/hack_tools/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Language: C99](https://img.shields.io/badge/Language-C99-orange.svg)](https://en.wikipedia.org/wiki/C99)
+[![Python: 3.9+](https://img.shields.io/badge/Python-3.9%2B-blue.svg)](https://www.python.org/)
+[![uv: Managed](https://img.shields.io/badge/Package_Manager-uv-purple.svg)](https://docs.astral.sh/uv/)
 
 A lightweight, robust toolchain for the **Hack CPU** architecture (from the *Nand2Tetris* / *The Elements of Computing Systems* project), originally built for [takayuki-nagata/hack_cpu](https://github.com/takayuki-nagata/hack_cpu).
 
@@ -10,116 +12,125 @@ A lightweight, robust toolchain for the **Hack CPU** architecture (from the *Nan
 
 ## Tools
 
-- **`has`**: An optimizing 2-pass Hack Assembler written in standard C99.
-  - Translates Hack assembly source files (`.asm`) into binary machine instructions.
-  - Supports multiple output formats:
-    - **Hack binary text** (`.hack`): standard 16-character `'0'`/`'1'` ASCII strings per instruction.
-    - **Raw binary** (`.bin`): 16-bit big-endian binary image.
-    - **Xilinx COE** (`.coe`): Memory initialization file format for FPGA synthesis and ROM generation.
-  - Supports predefined symbols (`SP`, `LCL`, `ARG`, `THIS`, `THAT`, `R0`..`R15`, `SCREEN`, `KBD`), forward/backward labels (`(LABEL)`), and user-defined variable allocation (`RAM[16..]`).
+### 1. `has` (Hack Assembler)
+An optimizing 2-pass Hack Assembler written in standard C99.
+- Translates Hack assembly source files (`.asm`) into binary machine instructions.
+- Supports multiple output formats:
+  - **Hack binary text** (`.hack`): standard 16-character `'0'`/`'1'` ASCII strings per instruction.
+  - **Raw binary** (`.bin`): 16-bit big-endian binary image.
+  - **Xilinx COE** (`.coe`): Memory initialization file format for FPGA synthesis and ROM generation.
+- Supports predefined symbols (`SP`, `LCL`, `ARG`, `THIS`, `THAT`, `R0`..`R15`, `SCREEN`, `KBD`), forward/backward labels (`(LABEL)`), and variable allocation (`RAM[16..]`).
+
+### 2. `hcc` (Hack C Compiler Frontend)
+An integrated compiler frontend that compiles C99 code directly into Hack machine code (`.hack`, `.bin`, `.coe`) with a single command.
+- Orchestrates `msp430-gcc` $\to$ `m2h` $\to$ `has` in a seamless pipeline.
+- Automatically selects optimal compilation flags (`-O2 -ffreestanding -fno-exceptions -nostdlib -mhwmult=none`).
+
+### 3. `m2h` (MSP430 to Hack Transpiler)
+A zero-runtime-dependency transpiler written in Python (managed with `uv`) that maps GCC-generated 16-bit MSP430 assembly (`.s`) into Hack assembly (`.asm`).
+- For detailed ABI, memory maps, and instruction mappings, see [**`m2h/docs/SPECIFICATION.md`**](m2h/docs/SPECIFICATION.md).
+
+---
+
+## Pipeline
+
+```text
+[ C Source: file.c ]
+        │
+        ▼ (msp430-gcc -S -O2 -ffreestanding ...)
+[ MSP430 Asm: file.s ]
+        │
+        ▼ (m2h)
+[ Hack Asm: file.asm ]
+        │
+        ▼ (has)
+[ Hack Binary: .hack / .bin / .coe ]
+```
 
 ---
 
 ## Building and Installation
 
 ### Requirements
-- C99-compliant C compiler (`gcc` or `clang`)
-- GNU Make (`make`)
-- Standard POSIX shell / coreutils (for testing)
+- C99 C compiler (`gcc` or `clang`)
+- Python 3.9+ and [`uv`](https://docs.astral.sh/uv/)
+- MSP430 GCC (`gcc-msp430` / `msp430-gcc`, optional for C compilation)
 
 ### Build
-To build the assembler:
 ```bash
 make
 ```
-The compiled binary will be placed in `has/has`.
 
-### Install / Uninstall
-To install `has` to `/usr/local/bin` (or custom `PREFIX`):
+### Install `has`
 ```bash
-sudo make install
-```
-To customize the install directory:
-```bash
-make install PREFIX=$HOME/.local
-```
-To uninstall:
-```bash
-sudo make uninstall
+sudo make install PREFIX=/usr/local
 ```
 
 ---
 
 ## Usage
 
-```text
-Usage: has [OPTION]... FILE
-Assemble Hack assembly (.asm) into machine code.
+### 1. Compile C Code with `hcc`
 
-Options:
-  -o, --outfile=FILE       Output to FILE.
-  -r, --raw                Use raw binary format (.bin).
-  -c, --coe                Use Xilinx COE format (.coe).
-  -s, --stdout             Output to stdout instead of a file.
-  -h, --help               Display this help text and exit.
-  -v, --version            Output version information and exit.
+```bash
+# Compile main.c directly to main.hack
+cd m2h && uv run hcc ../tests/c/sum.c -o sum.hack
 
-Default output format is Hack text binary (.hack).
+# Output as raw binary (.bin) or Xilinx COE (.coe)
+cd m2h && uv run hcc -r -o sum.bin ../tests/c/sum.c
+cd m2h && uv run hcc -c -o sum.coe ../tests/c/sum.c
+
+# Stop after generating Hack assembly (.asm)
+cd m2h && uv run hcc -S ../tests/c/sum.c -o sum.asm
 ```
 
-### Examples
+### 2. Assemble Hack Assembly with `has`
 
-1. **Assemble `.asm` to `.hack`** (default output file `Prog.hack` in the same directory):
-   ```bash
-   has Prog.asm
-   ```
+```bash
+# Assemble Prog.asm -> Prog.hack
+has Prog.asm
 
-2. **Specify output file name**:
-   ```bash
-   has -o output.hack Prog.asm
-   ```
+# Output raw binary (.bin) or Xilinx COE (.coe)
+has -r -o rom.bin Prog.asm
+has -c -o rom.coe Prog.asm
+```
 
-3. **Output raw binary (`.bin`) for emulator/ROM loading**:
-   ```bash
-   has -r -o rom.bin Prog.asm
-   ```
+### 3. Transpile MSP430 Assembly with `m2h`
 
-4. **Output Xilinx COE (`.coe`) for FPGA block RAM**:
-   ```bash
-   has -c -o rom.coe Prog.asm
-   ```
-
-5. **Print assembled output directly to stdout**:
-   ```bash
-   has -s Prog.asm
-   ```
+```bash
+cd m2h && uv run m2h input.s -o output.asm
+```
 
 ---
 
 ## Testing & Quality Assurance
 
-This repository includes a completely self-contained, comprehensive test suite covering all instruction variants, symbol resolution edge cases, format outputs, and error handling.
-
-### Run Automated Tests
+### Run All Tests
 ```bash
 make test
 ```
 
-### Code Coverage
-Measure line and branch coverage using `gcov`:
+### Code Coverage (100% Target)
 ```bash
+# Measures C coverage (gcov) and Python coverage (pytest-cov)
 make coverage
 ```
 
-### Address & Undefined Behavior Sanitizers
+### Type Checking & Linting
 ```bash
-make sanitize
-```
-
-### Lint & Format Check
-```bash
+# Run mypy strict type check, ruff lint, and clang-format check
 make lint
 make format-check
+```
+
+### Mutation Testing (`mutmut`)
+```bash
+make m2h-mutation
+```
+
+### End-to-End C Compilation Tests
+```bash
+make e2e-test
 ```
 
 ---

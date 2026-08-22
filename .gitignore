@@ -58,6 +58,21 @@ tests/out/
 !tests/expected/*.bin
 !tests/expected/*.coe
 
+# Python & uv
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.mutmut-cache/
+.coverage
+htmlcov/
+*.egg-info/
+dist/
+build/
+
 # Editor & OS files
 .DS_Store
 .vscode/

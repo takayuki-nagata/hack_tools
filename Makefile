@@ -38,17 +38,63 @@ $(UNIT_TEST): has tests/unit_test.o
 tests/unit_test.o: tests/unit_test.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
-test: all
+test: all m2h-test
 	@bash tests/run_tests.sh
+
+# Python / m2h targets
+m2h-sync:
+	@cd m2h && uv sync
+
+m2h-test:
+	@echo "=== Running m2h pytest ==="
+	@cd m2h && uv run pytest
+
+m2h-coverage:
+	@echo "=== Running m2h pytest with coverage ==="
+	@cd m2h && uv run pytest --cov=m2h --cov-report=term-missing
+
+m2h-typecheck:
+	@echo "=== Running m2h mypy typecheck ==="
+	@cd m2h && uv run mypy src/ tests/
+
+m2h-lint:
+	@echo "=== Running m2h ruff lint ==="
+	@cd m2h && uv run ruff check src/ tests/
+
+m2h-format:
+	@echo "=== Formatting m2h with ruff ==="
+	@cd m2h && uv run ruff format src/ tests/
+
+m2h-format-check:
+	@echo "=== Checking m2h formatting with ruff ==="
+	@cd m2h && uv run ruff format --check src/ tests/
+
+m2h-mutation:
+	@echo "=== Running m2h mutation testing (mutmut) ==="
+	@cd m2h && uv run mutmut run || true
+	@cd m2h && uv run mutmut results
+
+# End-to-End Test for C compilation pipeline (requires gcc-msp430)
+e2e-test: all
+	@echo "=== Running End-to-End C Compilation Tests ==="
+	@mkdir -p test_out
+	@which msp430-gcc >/dev/null 2>&1 || (echo "msp430-gcc not found, skipping E2E C tests." && exit 0); \
+	for c_file in tests/c/*.c; do \
+		base=$$(basename "$$c_file" .c); \
+		echo "Compiling and assembling $$c_file -> test_out/$$base.hack ..."; \
+		cd m2h && uv run hcc ../$$c_file -o ../test_out/$$base.hack && cd ..; \
+		test -s test_out/$$base.hack || exit 1; \
+		echo "PASSED: test_out/$$base.hack generated successfully."; \
+	done
 
 coverage: clean
 	@$(MAKE) all COVERAGE=1
 	@HAS_BIN="$(CURDIR)/has/has" bash tests/run_tests.sh
 	@echo ""
-	@echo "=== Coverage Summary (gcov) ==="
+	@echo "=== Coverage Summary (has: gcov) ==="
 	@cd has && gcov -b -c *.c
 	@echo ""
-	@echo "Coverage files generated in has/"
+	@$(MAKE) m2h-coverage
 
 sanitize: clean
 	@$(MAKE) all SANITIZE=1
@@ -56,15 +102,19 @@ sanitize: clean
 
 format:
 	@find has tests -name "*.c" -o -name "*.h" | xargs clang-format -i
+	@$(MAKE) m2h-format
 	@echo "Formatting complete."
 
 format-check:
 	@find has tests -name "*.c" -o -name "*.h" | xargs clang-format --dry-run --Werror
+	@$(MAKE) m2h-format-check
 	@echo "Format check passed."
 
 lint:
 	@$(MAKE) clean
 	@$(MAKE) all CFLAGS="$(CFLAGS) -Werror"
+	@$(MAKE) m2h-lint
+	@$(MAKE) m2h-typecheck
 
 install: has
 	install -d $(DESTDIR)$(BINDIR)
@@ -75,6 +125,7 @@ uninstall:
 
 clean:
 	$(MAKE) -C has clean
-	rm -rf test_out tests/out *.gcno *.gcda *.gcov has/*.gcno has/*.gcda has/*.gcov tests/*.o tests/*.gcno tests/*.gcda tests/unit_test
+	rm -rf test_out tests/out *.gcno *.gcda *.gcov has/*.gcno has/*.gcda has/*.gcov tests/*.o tests/*.gcno tests/*.gcda tests/unit_test m2h/.coverage m2h/.pytest_cache m2h/.mypy_cache m2h/htmlcov
 
-.PHONY: all has test coverage sanitize format format-check lint install uninstall clean
+.PHONY: all has test coverage sanitize format format-check lint install uninstall clean \
+        m2h-sync m2h-test m2h-coverage m2h-typecheck m2h-lint m2h-format m2h-format-check m2h-mutation e2e-test

@@ -22,24 +22,80 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
       - name: Build
         run: make all CC=${{ matrix.compiler }}
 
       - name: Run tests
         run: make test CC=${{ matrix.compiler }}
 
-  coverage:
-    name: Test Coverage (gcov)
+  m2h-quality:
+    name: Python (m2h) Quality & Tests
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Sync dependencies
+        run: cd m2h && uv sync
+
+      - name: Run Ruff Lint
+        run: make m2h-lint
+
+      - name: Run Ruff Format Check
+        run: make m2h-format-check
+
+      - name: Run Mypy Strict Typecheck
+        run: make m2h-typecheck
+
+      - name: Run Pytest Coverage (100% Target)
+        run: make m2h-coverage
+
+  e2e-c-compiler:
+    name: End-to-End C -> Hack Compilation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install MSP430 GCC
+        run: sudo apt-get update && sudo apt-get install -y gcc-msp430
+
+      - name: Build has
+        run: make has
+
+      - name: Sync m2h dependencies
+        run: cd m2h && uv sync
+
+      - name: Run E2E C compilation tests
+        run: make e2e-test
+
+  coverage:
+    name: C Test Coverage (has: gcov)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
       - name: Run coverage
         run: make coverage
 
   sanitizers:
-    name: Sanitizers (ASan & UBSan)
+    name: C Sanitizers (has: ASan & UBSan)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -49,7 +105,7 @@ jobs:
         run: make sanitize
 
   valgrind:
-    name: Memory Leak Check (Valgrind)
+    name: Memory Leak Check (has: Valgrind)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -72,7 +128,7 @@ jobs:
           valgrind --error-exitcode=1 --leak-check=full tests/unit_test
 
   lint-and-format:
-    name: Lint & Format Check
+    name: C Lint & Format Check
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code

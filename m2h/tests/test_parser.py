@@ -162,3 +162,22 @@ main:
     assert stmts[2].label == "main"
     assert stmts[3].mnemonic == "mov"
     assert stmts[4].mnemonic == "ret"
+
+
+def test_parse_assembly_with_block_comments() -> None:
+    source = """
+    /************************************
+     * GCC Compiler Generated Header
+     ************************************/
+    .text
+    /* Inline comment */
+    main:
+        mov #0, r12 /* Return 0 */
+        ret
+    """
+    stmts = parse_assembly(source)
+    assert len(stmts) == 4
+    assert stmts[0].directive == ".text"
+    assert stmts[1].label == "main"
+    assert stmts[2].mnemonic == "mov"
+    assert stmts[3].mnemonic == "ret"

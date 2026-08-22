@@ -123,6 +123,11 @@ def parse_operand(op_str: str) -> Operand:
     return Operand(op_type=OperandType.ABSOLUTE, value=s)
 
 
+def strip_block_comments(source: str) -> str:
+    """Strip C-style block comments /* ... */ across multiple lines."""
+    return re.sub(r"/\*.*?\*/", "", source, flags=re.DOTALL)
+
+
 def clean_line(line: str) -> str:
     """Strip comments and surrounding whitespace."""
     # Remove ; or // comments
@@ -202,8 +207,9 @@ def parse_line(line: str, line_number: int = 0) -> Optional[Statement]:
 
 def parse_assembly(source: str) -> list[Statement]:
     """Parse complete MSP430 assembly source text into statements."""
+    source_no_block_comments = strip_block_comments(source)
     statements: list[Statement] = []
-    for line_no, line in enumerate(source.splitlines(), start=1):
+    for line_no, line in enumerate(source_no_block_comments.splitlines(), start=1):
         stmt = parse_line(line, line_number=line_no)
         if stmt is not None:
             statements.append(stmt)

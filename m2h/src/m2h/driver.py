@@ -97,6 +97,7 @@ class CompilerDriver:
             # 1. Run msp430-gcc to produce MSP430 assembly (.s)
             gcc_cmd = [
                 self.cc,
+                "-std=c99",
                 "-S",
                 opt_level,
                 "-ffreestanding",

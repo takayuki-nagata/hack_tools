@@ -226,7 +226,7 @@ M=M+1
 When using `hcc` or manually running `msp430-gcc`:
 
 ```bash
-msp430-gcc -S \
+msp430-gcc -std=c99 -S \
   -O2 \
   -ffreestanding \
   -fno-asynchronous-unwind-tables \

@@ -188,6 +188,8 @@ The transpiled program utilizes Hack's data memory (`RAM`) as follows:
 | `pop dst` | Pop from stack | `@SP; M=M-1; A=M; D=M` $\to$ Write `D` into `dst` |
 | `call #fn` / `call fn` | Call subroutine | `@RET_N; D=A; @SP; A=M; M=D; @SP; M=M+1; @fn; 0;JMP; (RET_N)` |
 | `ret` | Return from subroutine | `@SP; M=M-1; A=M; A=M; 0;JMP` |
+| `rla dst` / `rlc dst` | Arithmetic left shift 1 bit (`dst += dst`) | Read `dst` into `D` $\to$ `D=D+D` $\to$ Write `D` into `dst` |
+| `br dst` | Branch to address/symbol | Read `dst` into `A` $\to$ `0;JMP` |
 
 ---
 

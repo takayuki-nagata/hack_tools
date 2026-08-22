@@ -415,7 +415,35 @@ class HackEmitter:
         if mn == "ret":
             return ["@SP", "M=M-1", "A=M", "A=M", "0;JMP"]
 
-        # 20. nop
+        # 20. rla dst / rlc dst (dst = dst + dst / left shift 1 bit)
+        if mn in ("rla", "rlc"):
+            if len(ops) != 1:
+                raise ValueError(f"{mn} requires 1 operand, got {len(ops)}")
+            dst = ops[0]
+            if dst.op_type == OperandType.REGISTER:
+                sym = reg_to_hack_symbol(dst.value)
+                return [f"@{sym}", "D=M", f"@{sym}", "M=D+M"]
+            out.extend(self.emit_load_operand(dst))
+            out.append("D=D+D")
+            out.extend(self.emit_store_operand(dst))
+            return out
+
+        # 21. br target (branch)
+        if mn == "br":
+            if len(ops) != 1:
+                raise ValueError("br requires 1 target operand")
+            target_op = ops[0]
+            if target_op.op_type == OperandType.REGISTER:
+                sym = reg_to_hack_symbol(target_op.value)
+                return [f"@{sym}", "A=M", "0;JMP"]
+            if target_op.op_type in (OperandType.ABSOLUTE, OperandType.IMMEDIATE):
+                target_sym = sanitize_symbol(target_op.value)
+                return [f"@{target_sym}", "0;JMP"]
+            out.extend(self.emit_load_operand(target_op))
+            out.extend(["A=D", "0;JMP"])
+            return out
+
+        # 22. nop
         if mn == "nop":
             return ["// nop"]
 

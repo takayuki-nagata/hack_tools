@@ -271,6 +271,32 @@ def test_emit_instructions() -> None:
     assert s is not None
     assert emitter.emit_statement(s) == ["// nop"]
 
+    # rla / rlc
+    s = parse_line("rla r12")
+    assert s is not None
+    assert emitter.emit_statement(s) == ["@R12", "D=M", "@R12", "M=D+M"]
+
+    s = parse_line("rla @r12")
+    assert s is not None
+    assert "D=D+D" in emitter.emit_statement(s)
+
+    s = parse_line("rlc r12")
+    assert s is not None
+    assert emitter.emit_statement(s) == ["@R12", "D=M", "@R12", "M=D+M"]
+
+    # br (branch)
+    s = parse_line("br r12")
+    assert s is not None
+    assert emitter.emit_statement(s) == ["@R12", "A=M", "0;JMP"]
+
+    s = parse_line("br #my_func")
+    assert s is not None
+    assert emitter.emit_statement(s) == ["@my_func", "0;JMP"]
+
+    s = parse_line("br @r12")
+    assert s is not None
+    assert emitter.emit_statement(s) == ["@R12", "A=M", "D=M", "A=D", "0;JMP"]
+
 
 def test_emit_errors() -> None:
     emitter = HackEmitter()
@@ -384,6 +410,16 @@ def test_emit_errors() -> None:
     s = parse_line("call")
     assert s is not None
     with pytest.raises(ValueError, match="call requires 1 target"):
+        emitter.emit_statement(s)
+
+    s = parse_line("rla")
+    assert s is not None
+    with pytest.raises(ValueError, match="rla requires 1 operand"):
+        emitter.emit_statement(s)
+
+    s = parse_line("br")
+    assert s is not None
+    with pytest.raises(ValueError, match="br requires 1 target"):
         emitter.emit_statement(s)
 
     s = parse_line("invalid_mnemonic r1")

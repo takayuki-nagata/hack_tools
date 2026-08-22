@@ -22,9 +22,6 @@ jobs:
       - name: "Checkout code"
         uses: actions/checkout@v4
 
-      - name: "Install uv"
-        uses: astral-sh/setup-uv@v5
-
       - name: "Build"
         run: make all CC=${{ matrix.compiler }}
 
@@ -61,7 +58,7 @@ jobs:
 
   e2e-c-compiler:
     name: "End-to-End C -> Hack Compilation"
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - name: "Checkout code"
         uses: actions/checkout@v4
@@ -87,9 +84,6 @@ jobs:
     steps:
       - name: "Checkout code"
         uses: actions/checkout@v4
-
-      - name: "Install uv"
-        uses: astral-sh/setup-uv@v5
 
       - name: "Run coverage"
         run: make coverage

@@ -38,8 +38,10 @@ $(UNIT_TEST): has tests/unit_test.o
 tests/unit_test.o: tests/unit_test.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
-test: all m2h-test
+test: all
 	@bash tests/run_tests.sh
+
+test-all: test m2h-test
 
 # Python / m2h targets
 m2h-sync:
@@ -94,7 +96,8 @@ coverage: clean
 	@echo "=== Coverage Summary (has: gcov) ==="
 	@cd has && gcov -b -c *.c
 	@echo ""
-	@$(MAKE) m2h-coverage
+
+coverage-all: coverage m2h-coverage
 
 sanitize: clean
 	@$(MAKE) all SANITIZE=1
@@ -127,5 +130,5 @@ clean:
 	$(MAKE) -C has clean
 	rm -rf test_out tests/out *.gcno *.gcda *.gcov has/*.gcno has/*.gcda has/*.gcov tests/*.o tests/*.gcno tests/*.gcda tests/unit_test m2h/.coverage m2h/.pytest_cache m2h/.mypy_cache m2h/htmlcov
 
-.PHONY: all has test coverage sanitize format format-check lint install uninstall clean \
+.PHONY: all has test test-all coverage coverage-all sanitize format format-check lint install uninstall clean \
         m2h-sync m2h-test m2h-coverage m2h-typecheck m2h-lint m2h-format m2h-format-check m2h-mutation e2e-test

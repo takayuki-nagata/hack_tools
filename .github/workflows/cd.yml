@@ -1,0 +1,139 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2020-2026 Takayuki Nagata
+
+name: "CD"
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build-has-linux:
+    name: "Build has (Linux x86_64)"
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Checkout code"
+        uses: actions/checkout@v4
+
+      - name: "Build has binary"
+        run: make has CFLAGS="-std=c99 -Wall -Wextra -O2"
+
+      - name: "Package Linux tarball"
+        run: |
+          TAG_NAME="${{ github.ref_name }}"
+          PKG_NAME="has-${TAG_NAME}-linux-x86_64"
+          mkdir -p "${PKG_NAME}"
+          cp has/has "${PKG_NAME}/"
+          cp LICENSE "${PKG_NAME}/"
+          cp README.md "${PKG_NAME}/"
+          tar -czvf "${PKG_NAME}.tar.gz" "${PKG_NAME}"
+
+      - name: "Upload Linux artifact"
+        uses: actions/upload-artifact@v4
+        with:
+          name: "has-linux-x86_64"
+          path: "has-*.tar.gz"
+
+  build-has-macos:
+    name: "Build has (${{ matrix.name }})"
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: macos-13
+            arch: x86_64
+            name: macOS x86_64
+          - os: macos-14
+            arch: arm64
+            name: macOS Apple Silicon (arm64)
+    steps:
+      - name: "Checkout code"
+        uses: actions/checkout@v4
+
+      - name: "Build has binary"
+        run: make has CC=clang CFLAGS="-std=c99 -Wall -Wextra -O2"
+
+      - name: "Package macOS tarball"
+        run: |
+          TAG_NAME="${{ github.ref_name }}"
+          PKG_NAME="has-${TAG_NAME}-macos-${{ matrix.arch }}"
+          mkdir -p "${PKG_NAME}"
+          cp has/has "${PKG_NAME}/"
+          cp LICENSE "${PKG_NAME}/"
+          cp README.md "${PKG_NAME}/"
+          tar -czvf "${PKG_NAME}.tar.gz" "${PKG_NAME}"
+
+      - name: "Upload macOS artifact"
+        uses: actions/upload-artifact@v4
+        with:
+          name: "has-macos-${{ matrix.arch }}"
+          path: "has-*.tar.gz"
+
+  build-python-m2h:
+    name: "Build Python Package (m2h Wheel & sdist)"
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Checkout code"
+        uses: actions/checkout@v4
+
+      - name: "Install uv"
+        uses: astral-sh/setup-uv@v5
+
+      - name: "Build Wheel and sdist"
+        run: |
+          cd m2h
+          uv build
+
+      - name: "Upload Python artifacts"
+        uses: actions/upload-artifact@v4
+        with:
+          name: "m2h-python-packages"
+          path: "m2h/dist/*"
+
+  publish-release:
+    name: "Publish GitHub Release"
+    needs: [build-has-linux, build-has-macos, build-python-m2h]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: "Checkout code"
+        uses: actions/checkout@v4
+
+      - name: "Download all artifacts"
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+
+      - name: "Extract Changelog for current release"
+        id: changelog
+        run: |
+          TAG_NAME="${{ github.ref_name }}"
+          VERSION="${TAG_NAME#v}"
+          # Extract section from CHANGELOG.md corresponding to this version
+          python3 -c "
+          import sys, re
+          try:
+              with open('CHANGELOG.md') as f:
+                  content = f.read()
+              version = sys.argv[1]
+              pattern = rf'## \[{re.escape(version)}\][^\n]*\n(.*?)(?=\n## \[|\Z)'
+              match = re.search(pattern, content, re.DOTALL)
+              if match:
+                  print(match.group(1).strip())
+              else:
+                  print('Release ' + sys.argv[1])
+          except Exception:
+              print('Release ' + sys.argv[1])
+          " "${VERSION}" > RELEASE_BODY.md
+
+      - name: "Create GitHub Release"
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "Release ${{ github.ref_name }}"
+          body_path: RELEASE_BODY.md
+          files: release-assets/*
+          draft: false
+          prerelease: false

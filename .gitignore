@@ -22,7 +22,7 @@
 *.la
 *.lo
 
-# Shared objects (inc. Windows DLLs)
+# Shared objects
 *.dll
 *.so
 *.so.*
@@ -35,18 +35,32 @@
 *.i*86
 *.x86_64
 *.hex
+has/has
+has
 
-# Debug files
+# Debug and profiling
 *.dSYM/
 *.su
 *.idb
 *.pdb
+*.gcno
+*.gcda
+*.gcov
+coverage/
 
-# Kernel Module Compile Results
-*.mod*
-*.cmd
-.tmp_versions/
-modules.order
-Module.symvers
-Mkfile.old
-dkms.conf
+# Test artifacts
+test_out/
+tests/out/
+*.hack
+*.bin
+*.coe
+!tests/expected/*.hack
+!tests/expected/*.bin
+!tests/expected/*.coe
+
+# Editor & OS files
+.DS_Store
+.vscode/
+.idea/
+*.swp
+*~

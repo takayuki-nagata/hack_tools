@@ -1,0 +1,87 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2020-2026 Takayuki Nagata
+
+name: CI
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+
+jobs:
+  build-and-test:
+    name: Build & Test (${{ matrix.os }} - ${{ matrix.compiler }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-latest, macos-latest ]
+        compiler: [ gcc, clang ]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build
+        run: make all CC=${{ matrix.compiler }}
+
+      - name: Run tests
+        run: make test CC=${{ matrix.compiler }}
+
+  coverage:
+    name: Test Coverage (gcov)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run coverage
+        run: make coverage
+
+  sanitizers:
+    name: Sanitizers (ASan & UBSan)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run sanitizers
+        run: make sanitize
+
+  valgrind:
+    name: Memory Leak Check (Valgrind)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Valgrind
+        run: sudo apt-get update && sudo apt-get install -y valgrind
+
+      - name: Build
+        run: make all DEBUG=1
+
+      - name: Run Valgrind on has
+        run: |
+          valgrind --error-exitcode=1 --leak-check=full has/has -o test_out/all.hack tests/asm/all_instructions.asm
+          valgrind --error-exitcode=1 --leak-check=full has/has -o test_out/sym.hack tests/asm/symbols.asm
+          valgrind --error-exitcode=1 --leak-check=full has/has -o test_out/math.hack tests/asm/math_loop.asm
+          valgrind --error-exitcode=1 --leak-check=full has/has -r -o test_out/math.bin tests/asm/math_loop.asm
+          valgrind --error-exitcode=1 --leak-check=full has/has -c -o test_out/math.coe tests/asm/math_loop.asm
+          valgrind --error-exitcode=1 --leak-check=full tests/unit_test
+
+  lint-and-format:
+    name: Lint & Format Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install clang-format
+        run: sudo apt-get update && sudo apt-get install -y clang-format
+
+      - name: Check formatting
+        run: find has tests -name "*.c" -o -name "*.h" | xargs clang-format --dry-run --Werror
+
+      - name: Strict warning build
+        run: make lint

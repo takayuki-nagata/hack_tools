@@ -1,18 +1,20 @@
+// SPDX-License-Identifier: MIT
 /*
- * Copyright (c) 2020 Takayuki Nagata All rights reserved.
+ * Copyright (c) 2020-2026 Takayuki Nagata
  */
 
-#ifndef _SYMBOL_TABLE_H
-#define _SYMBOL_TABLE_H
+#ifndef HAS_SYMBOL_TABLE_H
+#define HAS_SYMBOL_TABLE_H
 
+#include <stdbool.h>
 #include <stdint.h>
 
 #define SYMTBL_ERROR ((uint16_t)0xffff)
 
-extern void symbol_table_open(void);
-extern void symbol_table_close(void);
-extern void symbol_table_add_entry(const char *symbol, const uint16_t address);
-extern bool symbol_table_contains(const char *symbol);
-extern uint16_t symbol_table_get_address(const char *symbol);
+void symbol_table_open(void);
+void symbol_table_close(void);
+bool symbol_table_add_entry(const char *symbol, uint16_t address);
+bool symbol_table_contains(const char *symbol);
+uint16_t symbol_table_get_address(const char *symbol);
 
-#endif /* _SYMBOL_TABLE_H */
+#endif /* HAS_SYMBOL_TABLE_H */

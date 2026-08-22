@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: MIT
+BasedOnStyle: LLVM
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+ColumnLimit: 100
+AllowShortIfStatementsOnASingleLine: false
+AllowShortBlocksOnASingleLine: false
+AllowShortFunctionsOnASingleLine: Inline
+BreakBeforeBraces: Attach
+AlignAfterOpenBracket: Align
+SortIncludes: false

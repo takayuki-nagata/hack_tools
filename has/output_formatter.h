@@ -1,25 +1,26 @@
+// SPDX-License-Identifier: MIT
 /*
- * Copyright (c) 2020 Takayuki Nagata All rights reserved.
+ * Copyright (c) 2020-2026 Takayuki Nagata
  */
 
-#ifndef _OUTPUT_FORMATTER_H
-#define _OUTPUT_FORMATTER_H
+#ifndef HAS_OUTPUT_FORMATTER_H
+#define HAS_OUTPUT_FORMATTER_H
 
 #include <stdint.h>
 #include <stdio.h>
 
 typedef enum {
-	HACK = 0,
-	RAW,
-	COE,
+    HACK = 0,
+    RAW,
+    COE,
 } output_format_type;
 
 typedef struct {
-	void (*header) (FILE *outfile);
-	void (*body) (uint16_t binary, FILE *outfile);
-	void (*footer) (FILE *outfile);
+    void (*header)(FILE *outfile);
+    void (*body)(uint16_t binary, FILE *outfile);
+    void (*footer)(FILE *outfile);
 } output_formatter;
 
-extern output_formatter* get_output_formatter(output_format_type type);
+const output_formatter *get_output_formatter(output_format_type type);
 
-#endif /* _OUTPUT_FORMATTER_H */
+#endif /* HAS_OUTPUT_FORMATTER_H */

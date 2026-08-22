@@ -1,222 +1,239 @@
+// SPDX-License-Identifier: MIT
 /*
- * Copyright (c) 2020 Takayuki Nagata All rights reserved.
+ * Copyright (c) 2020-2026 Takayuki Nagata
  */
 
+#include "parser.h"
+#include <ctype.h>
 #include <stdio.h>
 #include <string.h>
-#include "parser.h"
 
-#ifdef DEBUG
-#define PARSER_ADVANCED_DEBUG(c) (printf("%c", c));
-#else
-#define PARSER_ADVANCED_DEBUG(c)
-#endif
+#define CMDMAX 1024
+#define DESTSZ 16
+#define JUMPSZ 16
+#define COMPSZ 16
+#define SYMBOLSZ 256
 
-#define CMDMAX 256
-#define DESTSZ 4
-#define JUMPSZ 4
-#define COMPSZ 4
-#define SYMBOLSZ 125
+static FILE *source_fp = NULL;
+static char current_command[CMDMAX];
+static char dest[DESTSZ];
+static char jump[JUMPSZ];
+static char comp[COMPSZ];
+static char symbol[SYMBOLSZ];
+static int current_line_number = 0;
+static bool has_peeked = false;
+static bool at_eof = false;
 
-FILE *source_fp = NULL;
-char current_command[CMDMAX];
-char dest[DESTSZ];
-char jump[JUMPSZ];
-char comp[COMPSZ];
-char symbol[SYMBOLSZ];
-
-static void parser_error(const char *msg)
-{
-	printf("parser error: %s: %s\n", current_command, msg);
+static void parser_error(const char *msg) {
+    if (current_command[0] != '\0') {
+        fprintf(stderr, "has: error (line %d, '%s'): %s\n", current_line_number, current_command,
+                msg);
+    } else {
+        fprintf(stderr, "has: error (line %d): %s\n", current_line_number, msg);
+    }
 }
 
-
-void parser_open(const char *fpath)
-{
-	if ((source_fp = fopen(fpath, "r"))) {
-		memset(current_command, 0, CMDMAX);
-		memset(dest, 0, DESTSZ);
-		memset(comp, 0, COMPSZ);
-		memset(symbol, 0, SYMBOLSZ);
-	} else {
-		parser_error("failed to open source file");
-	}
+bool parser_open(const char *fpath) {
+    parser_close();
+    if (!fpath) {
+        fprintf(stderr, "has: error: failed to open source file '(null)'\n");
+        return false;
+    }
+    source_fp = fopen(fpath, "r");
+    if (!source_fp) {
+        fprintf(stderr, "has: error: failed to open source file '%s'\n", fpath);
+        return false;
+    }
+    current_line_number = 0;
+    has_peeked = false;
+    at_eof = false;
+    current_command[0] = '\0';
+    dest[0] = '\0';
+    jump[0] = '\0';
+    comp[0] = '\0';
+    symbol[0] = '\0';
+    return true;
 }
 
-void parser_close(void)
-{
-	if (source_fp) {
-		fclose(source_fp);
-		source_fp = NULL;
-	}
+void parser_close(void) {
+    if (source_fp) {
+        fclose(source_fp);
+        source_fp = NULL;
+    }
+    has_peeked = false;
+    at_eof = false;
 }
 
-bool parser_has_more_commands(void)
-{
-	char c;
-	if (source_fp) {
-		c = fgetc(source_fp);
-		if (EOF == c) {
-			return false;
-		} else if ('\n' != c) {
-			fseek(source_fp, -1, SEEK_CUR);
-			return true;
-		}
-	}
-	return false;
+int parser_get_line_number(void) {
+    return current_line_number;
 }
 
-void parser_advanced(void)
-{
-	char p = '\0', c;
-	bool comment = false;
-	int pos = 0;
+static bool fetch_next_command(char *out_buf, size_t buf_sz) {
+    if (!source_fp || at_eof) {
+        return false;
+    }
 
-	while ((c = fgetc(source_fp)) != EOF) {
-		PARSER_ADVANCED_DEBUG(c);
-		if (comment) {
-			if('\n' == c) {
-				if (pos)
-					return;
-				comment = false;
-			}
-			continue;
-		} else {
-			if ('/' == p && '/' == c) {
-				comment = true;
-				if (pos)
-					current_command[--pos] = '\0';
-				continue;
-			}
-			if (' ' == c || '\r' == c)
-				continue;
-			if ('\n' == c) {
-				if (pos) {
-					current_command[pos] = '\0';
-					return;
-				} else {
-					pos = 0;
-					continue;
-				}
-			}
-			current_command[pos++] = c;
-		}
-		p = c;
-	}
+    char line[1024];
+    while (fgets(line, sizeof(line), source_fp) != NULL) {
+        current_line_number++;
+
+        // Strip comments starting with //
+        char *comment_pos = strstr(line, "//");
+        if (comment_pos) {
+            *comment_pos = '\0';
+        }
+
+        // Strip whitespace
+        size_t pos = 0;
+        for (size_t i = 0; line[i] != '\0'; i++) {
+            unsigned char c = (unsigned char)line[i];
+            if (!isspace(c)) {
+                if (pos + 1 < buf_sz) {
+                    out_buf[pos++] = (char)c;
+                }
+            }
+        }
+        out_buf[pos] = '\0';
+
+        if (pos > 0) {
+            return true;
+        }
+    }
+
+    at_eof = true;
+    return false;
 }
 
-int parser_command_type(void)
-{
-	switch (current_command[0])
-	{
-	case '@':
-		return A_COMMAND;
-	case '(':
-		return L_COMMAND;
-	default:
-		return C_COMMAND;
-	}
+bool parser_has_more_commands(void) {
+    if (!source_fp || at_eof) {
+        return false;
+    }
+    if (has_peeked) {
+        return true;
+    }
+
+    if (fetch_next_command(current_command, sizeof(current_command))) {
+        has_peeked = true;
+        return true;
+    }
+    return false;
 }
 
-char* parser_symbol(void)
-{
-	int rparpos, symlen;
+bool parser_advanced(void) {
+    dest[0] = '\0';
+    comp[0] = '\0';
+    jump[0] = '\0';
+    symbol[0] = '\0';
 
-	memset(symbol, 0, SYMBOLSZ);
+    if (has_peeked) {
+        has_peeked = false;
+        return true;
+    }
 
-	switch (current_command[0])
-	{
-	case '@':
-		symlen = strlen(current_command) - 1;
-		break;
-	case '(':
-		rparpos = strchr(current_command, ')') - current_command;
-		symlen = rparpos - 1;
-		break;
-	}
-
-	if (symlen <= SYMBOLSZ) {
-		strncpy(symbol, &current_command[1], symlen);
-		return symbol;
-	} else {
-		parser_error("too long value");
-	}
-
-	return NULL;
+    return fetch_next_command(current_command, sizeof(current_command));
 }
 
-char* parser_dest(void)
-{
-	int eqlpos, destlen;
-
-	memset(dest, 0, DESTSZ);
-	eqlpos = strchr(current_command, '=') - current_command;
-
-	if (eqlpos >= 0) {
-		destlen = eqlpos;
-		if (destlen <= 3) {
-			strncpy(dest, current_command, destlen);
-			return dest;
-		} else {
-			parser_error("invalid dest command");
-			return NULL;
-		}
-	}
-	return NULL;
+command_type_t parser_command_type(void) {
+    if (current_command[0] == '@') {
+        return A_COMMAND;
+    } else if (current_command[0] == '(') {
+        return L_COMMAND;
+    } else if (current_command[0] != '\0') {
+        return C_COMMAND;
+    }
+    return INVALID_COMMAND;
 }
 
-char* parser_comp(void)
-{
-	int eqlpos, smcpos, complen;
+const char *parser_symbol(void) {
+    symbol[0] = '\0';
 
-	memset(comp, 0, COMPSZ);
-	eqlpos = strchr(current_command, '=') - current_command;
-	smcpos = strchr(current_command, ';') - current_command;
+    if (current_command[0] == '@') {
+        size_t len = strlen(current_command) - 1;
+        if (len == 0) {
+            parser_error("empty A-instruction symbol");
+            return NULL;
+        }
+        if (len >= sizeof(symbol)) {
+            parser_error("symbol name exceeds maximum length");
+            return NULL;
+        }
+        memcpy(symbol, &current_command[1], len);
+        symbol[len] = '\0';
+        return symbol;
+    } else if (current_command[0] == '(') {
+        const char *rparen = strchr(current_command, ')');
+        if (!rparen) {
+            parser_error("unclosed label declaration, missing ')'");
+            return NULL;
+        }
+        size_t len = (size_t)(rparen - (current_command + 1));
+        if (len == 0) {
+            parser_error("empty label declaration '()'");
+            return NULL;
+        }
+        if (len >= sizeof(symbol)) {
+            parser_error("label name exceeds maximum length");
+            return NULL;
+        }
+        memcpy(symbol, &current_command[1], len);
+        symbol[len] = '\0';
+        return symbol;
+    }
 
-	if (eqlpos >= 0) {
-		if (smcpos >= 0)
-			complen = smcpos - eqlpos;
-		else
-			complen = strlen(current_command) - (eqlpos + 1);
-
-		if (complen > 0 && complen <= 3) {
-			strncpy(comp, &current_command[eqlpos+1], complen);
-			return comp;
-		} else {
-			parser_error("invalid comp command");
-		}
-	} else {
-		if (smcpos >= 0)
-			complen = smcpos;
-		else
-			complen = strlen(current_command);
-
-		if (complen <= 3) {
-			strncpy(comp, current_command, complen);
-			return comp;
-		} else {
-			parser_error("invalid comp command");
-		}
-	}
-	return NULL;
+    parser_error("parser_symbol called on non-symbol command");
+    return NULL;
 }
 
-char* parser_jump(void)
-{
-	int smcpos, jumplen;
-
-	memset(jump, 0, JUMPSZ);
-	smcpos = strchr(current_command, ';') - current_command;
-
-	if (smcpos >= 0) {
-		jumplen = strlen(current_command) - (smcpos + 1);
-		if (jumplen == 3) {
-			strncpy(jump, &current_command[smcpos+1], jumplen);
-			return jump;
-		} else {
-			parser_error("illegal jump command");
-		}
-	}
-	return NULL;
+const char *parser_dest(void) {
+    dest[0] = '\0';
+    const char *eql = strchr(current_command, '=');
+    if (eql) {
+        size_t len = (size_t)(eql - current_command);
+        if (len == 0 || len >= sizeof(dest)) {
+            parser_error("invalid dest specification");
+            return NULL;
+        }
+        memcpy(dest, current_command, len);
+        dest[len] = '\0';
+        return dest;
+    }
+    return NULL;
 }
 
+const char *parser_comp(void) {
+    comp[0] = '\0';
+    const char *start = current_command;
+    const char *eql = strchr(current_command, '=');
+    if (eql) {
+        start = eql + 1;
+    }
+
+    const char *smc = strchr(start, ';');
+    size_t len = smc ? (size_t)(smc - start) : strlen(start);
+
+    if (len == 0 || len >= sizeof(comp)) {
+        parser_error("invalid comp specification");
+        return NULL;
+    }
+
+    memcpy(comp, start, len);
+    comp[len] = '\0';
+    return comp;
+}
+
+const char *parser_jump(void) {
+    jump[0] = '\0';
+    const char *smc = strchr(current_command, ';');
+    if (smc) {
+        const char *start = smc + 1;
+        size_t len = strlen(start);
+        if (len == 0 || len >= sizeof(jump)) {
+            parser_error("invalid jump specification");
+            return NULL;
+        }
+        memcpy(jump, start, len);
+        jump[len] = '\0';
+        return jump;
+    }
+    return NULL;
+}

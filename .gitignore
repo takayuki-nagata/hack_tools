@@ -37,6 +37,7 @@
 *.hex
 has/has
 has
+tests/unit_test
 
 # Debug and profiling
 *.dSYM/

@@ -105,19 +105,21 @@ sanitize: clean
 
 format:
 	@find has tests -name "*.c" -o -name "*.h" | xargs clang-format -i
-	@$(MAKE) m2h-format
-	@echo "Formatting complete."
+	@echo "C formatting complete."
 
 format-check:
 	@find has tests -name "*.c" -o -name "*.h" | xargs clang-format --dry-run --Werror
-	@$(MAKE) m2h-format-check
-	@echo "Format check passed."
+	@echo "C format check passed."
+
+format-all: format m2h-format
+
+format-check-all: format-check m2h-format-check
 
 lint:
 	@$(MAKE) clean
 	@$(MAKE) all CFLAGS="$(CFLAGS) -Werror"
-	@$(MAKE) m2h-lint
-	@$(MAKE) m2h-typecheck
+
+lint-all: lint m2h-lint m2h-typecheck
 
 install: has
 	install -d $(DESTDIR)$(BINDIR)
@@ -130,5 +132,5 @@ clean:
 	$(MAKE) -C has clean
 	rm -rf test_out tests/out *.gcno *.gcda *.gcov has/*.gcno has/*.gcda has/*.gcov tests/*.o tests/*.gcno tests/*.gcda tests/unit_test m2h/.coverage m2h/.pytest_cache m2h/.mypy_cache m2h/htmlcov
 
-.PHONY: all has test test-all coverage coverage-all sanitize format format-check lint install uninstall clean \
+.PHONY: all has test test-all coverage coverage-all sanitize format format-check format-all format-check-all lint lint-all install uninstall clean \
         m2h-sync m2h-test m2h-coverage m2h-typecheck m2h-lint m2h-format m2h-format-check m2h-mutation e2e-test

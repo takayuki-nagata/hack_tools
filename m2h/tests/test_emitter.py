@@ -171,7 +171,10 @@ def test_emit_instructions() -> None:
     assert emitter.emit_load_operand(Operand(OperandType.IMMEDIATE, "1")) == ["@1", "D=A"]
     assert emitter.emit_load_operand(Operand(OperandType.IMMEDIATE, "-1")) == ["D=-1"]
     assert emitter.emit_load_operand(Operand(OperandType.IMMEDIATE, "-5")) == ["@5", "D=-A"]
-    assert emitter.emit_load_operand(Operand(OperandType.IMMEDIATE, "my_func")) == ["@my_func", "D=A"]
+    assert emitter.emit_load_operand(Operand(OperandType.IMMEDIATE, "my_func")) == [
+        "@my_func",
+        "D=A",
+    ]
 
     # add / sub with -1
     s = parse_line("add #-1, r12")

@@ -63,6 +63,7 @@ jobs:
 
       - name: Run Valgrind on has
         run: |
+          mkdir -p test_out
           valgrind --error-exitcode=1 --leak-check=full has/has -o test_out/all.hack tests/asm/all_instructions.asm
           valgrind --error-exitcode=1 --leak-check=full has/has -o test_out/sym.hack tests/asm/symbols.asm
           valgrind --error-exitcode=1 --leak-check=full has/has -o test_out/math.hack tests/asm/math_loop.asm
@@ -81,7 +82,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y clang-format
 
       - name: Check formatting
-        run: find has tests -name "*.c" -o -name "*.h" | xargs clang-format --dry-run --Werror
+        run: make format-check
 
       - name: Strict warning build
         run: make lint

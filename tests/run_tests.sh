@@ -78,7 +78,7 @@ test_raw_binary() {
     
     # 20 instructions * 2 bytes = 40 bytes
     local file_sz
-    file_sz=$(wc -c < "${bin_file}")
+    file_sz=$(wc -c < "${bin_file}" | tr -d ' \t\r\n')
     if [ "${file_sz}" -ne 40 ]; then
         echo "Unexpected file size ${file_sz}, expected 40"
         return 1
@@ -86,7 +86,7 @@ test_raw_binary() {
 
     # Check first instruction @2 (0x0002) in big-endian
     local first_bytes
-    first_bytes=$(hexdump -n 2 -e '2/1 "%02x "' "${bin_file}" | tr -d ' ')
+    first_bytes=$(hexdump -n 2 -e '2/1 "%02x "' "${bin_file}" | tr -d ' \t\r\n')
     if [ "${first_bytes}" != "0002" ]; then
         echo "Unexpected first bytes: ${first_bytes}, expected 0002"
         return 1
@@ -209,7 +209,7 @@ test_error_handling() {
 # 8. C Unit Tests
 test_c_unit() {
     if [ -x "${REPO_ROOT}/tests/unit_test" ]; then
-        "${REPO_ROOT}/tests/unit_test" > /dev/null
+        "${REPO_ROOT}/tests/unit_test"
     fi
 }
 

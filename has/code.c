@@ -65,25 +65,13 @@ static const instruction_table_t comp_tbl1[] = {
 };
 
 static const instruction_table_t dest_tbl[] = {
-    {"M", D3},
-    {"D", D2},
-    {"MD", D2 | D3},
-    {"A", D1},
-    {"AM", D1 | D3},
-    {"AD", D1 | D2},
-    {"AMD", D1 | D2 | D3},
-    {NULL, 0},
+    {"M", D3},       {"D", D2},       {"MD", D2 | D3},       {"A", D1},
+    {"AM", D1 | D3}, {"AD", D1 | D2}, {"AMD", D1 | D2 | D3}, {NULL, 0},
 };
 
 static const instruction_table_t jump_tbl[] = {
-    {"JGT", J3},
-    {"JEQ", J2},
-    {"JGE", J2 | J3},
-    {"JLT", J1},
-    {"JNE", J1 | J3},
-    {"JLE", J1 | J2},
-    {"JMP", J1 | J2 | J3},
-    {NULL, 0},
+    {"JGT", J3},      {"JEQ", J2},      {"JGE", J2 | J3},      {"JLT", J1},
+    {"JNE", J1 | J3}, {"JLE", J1 | J2}, {"JMP", J1 | J2 | J3}, {NULL, 0},
 };
 
 static uint8_t search_tbl(const instruction_table_t *tbl, const char *mnemonic) {

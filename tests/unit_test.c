@@ -15,13 +15,13 @@
 
 static int total_asserts = 0;
 
-#define TEST_ASSERT(cond)                                                                         \
-    do {                                                                                          \
-        total_asserts++;                                                                          \
-        if (!(cond)) {                                                                            \
-            fprintf(stderr, "Assertion failed: %s at %s:%d\n", #cond, __FILE__, __LINE__);        \
-            exit(EXIT_FAILURE);                                                                   \
-        }                                                                                         \
+#define TEST_ASSERT(cond)                                                                          \
+    do {                                                                                           \
+        total_asserts++;                                                                           \
+        if (!(cond)) {                                                                             \
+            fprintf(stderr, "Assertion failed: %s at %s:%d\n", #cond, __FILE__, __LINE__);         \
+            exit(EXIT_FAILURE);                                                                    \
+        }                                                                                          \
     } while (0)
 
 static void test_symbol_table_edge_cases(void) {

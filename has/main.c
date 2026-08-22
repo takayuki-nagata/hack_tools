@@ -23,17 +23,16 @@ typedef struct {
 } options_t;
 
 static void show_usage(FILE *stream) {
-    fprintf(stream,
-            "Usage: has [OPTION]... FILE\n"
-            "Assemble Hack assembly (.asm) into machine code.\n\n"
-            "Options:\n"
-            "  -o, --outfile=FILE       Output to FILE.\n"
-            "  -r, --raw                Use raw binary format (.bin).\n"
-            "  -c, --coe                Use Xilinx COE format (.coe).\n"
-            "  -s, --stdout             Output to stdout instead of a file.\n"
-            "  -h, --help               Display this help text and exit.\n"
-            "  -v, --version            Output version information and exit.\n\n"
-            "Default output format is Hack text binary (.hack).\n");
+    fprintf(stream, "Usage: has [OPTION]... FILE\n"
+                    "Assemble Hack assembly (.asm) into machine code.\n\n"
+                    "Options:\n"
+                    "  -o, --outfile=FILE       Output to FILE.\n"
+                    "  -r, --raw                Use raw binary format (.bin).\n"
+                    "  -c, --coe                Use Xilinx COE format (.coe).\n"
+                    "  -s, --stdout             Output to stdout instead of a file.\n"
+                    "  -h, --help               Display this help text and exit.\n"
+                    "  -v, --version            Output version information and exit.\n\n"
+                    "Default output format is Hack text binary (.hack).\n");
 }
 
 static void show_version(void) {

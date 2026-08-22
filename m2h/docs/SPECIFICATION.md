@@ -233,7 +233,6 @@ msp430-gcc -S \
   -fno-exceptions \
   -fno-builtin \
   -nostdlib \
-  -mhwmult=none \
   -Wall -Wextra \
   source.c -o source.s
 ```

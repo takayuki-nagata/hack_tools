@@ -24,7 +24,7 @@ An optimizing 2-pass Hack Assembler written in standard C99.
 ### 2. `hcc` (Hack C Compiler Frontend)
 An integrated compiler frontend that compiles C99 code directly into Hack machine code (`.hack`, `.bin`, `.coe`) with a single command.
 - Orchestrates `msp430-gcc` $\to$ `m2h` $\to$ `has` in a seamless pipeline.
-- Automatically selects optimal compilation flags (`-O2 -ffreestanding -fno-exceptions -nostdlib -mhwmult=none`).
+- Automatically selects optimal compilation flags (`-O2 -ffreestanding -fno-exceptions -nostdlib`).
 
 ### 3. `m2h` (MSP430 to Hack Transpiler)
 A zero-runtime-dependency transpiler written in Python (managed with `uv`) that maps GCC-generated 16-bit MSP430 assembly (`.s`) into Hack assembly (`.asm`).

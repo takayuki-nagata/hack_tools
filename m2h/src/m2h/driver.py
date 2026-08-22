@@ -104,7 +104,6 @@ class CompilerDriver:
                 "-fno-exceptions",
                 "-fno-builtin",
                 "-nostdlib",
-                "-mhwmult=none",
                 "-Wall",
                 "-Wextra",
                 input_c_path,

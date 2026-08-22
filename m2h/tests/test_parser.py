@@ -40,6 +40,19 @@ def test_parse_operand_valid() -> None:
     assert op.value == "123"
     assert str(op) == "#123"
 
+    # Immediate negative & expressions (e.g. llo(-1), %hi(sym), (-5))
+    op = parse_operand("#llo(-1)")
+    assert op.op_type == OperandType.IMMEDIATE
+    assert op.value == "-1"
+
+    op = parse_operand("#%hi(my_sym)")
+    assert op.op_type == OperandType.IMMEDIATE
+    assert op.value == "my_sym"
+
+    op = parse_operand("#(-5)")
+    assert op.op_type == OperandType.IMMEDIATE
+    assert op.value == "-5"
+
     # Register
     op = parse_operand("r4")
     assert op.op_type == OperandType.REGISTER

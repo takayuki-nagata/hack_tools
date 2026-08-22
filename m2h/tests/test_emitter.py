@@ -166,10 +166,30 @@ def test_emit_instructions() -> None:
     assert s is not None
     assert emitter.emit_statement(s) == ["@0", "D=A", "@R12", "M=D"]
 
-    # inc / dec
+    # Negative and constant immediates loading
+    assert emitter.emit_load_operand(Operand(OperandType.IMMEDIATE, "0")) == ["@0", "D=A"]
+    assert emitter.emit_load_operand(Operand(OperandType.IMMEDIATE, "1")) == ["@1", "D=A"]
+    assert emitter.emit_load_operand(Operand(OperandType.IMMEDIATE, "-1")) == ["D=-1"]
+    assert emitter.emit_load_operand(Operand(OperandType.IMMEDIATE, "-5")) == ["@5", "D=-A"]
+    assert emitter.emit_load_operand(Operand(OperandType.IMMEDIATE, "my_func")) == ["@my_func", "D=A"]
+
+    # add / sub with -1
+    s = parse_line("add #-1, r12")
+    assert s is not None
+    assert emitter.emit_statement(s) == ["@R12", "M=M-1"]
+
+    s = parse_line("sub #-1, r12")
+    assert s is not None
+    assert emitter.emit_statement(s) == ["@R12", "M=M+1"]
+
+    # inc / incd / dec / decd
     s = parse_line("inc r12")
     assert s is not None
     assert emitter.emit_statement(s) == ["@R12", "M=M+1"]
+
+    s = parse_line("incd r12")
+    assert s is not None
+    assert emitter.emit_statement(s) == ["@R12", "M=M+1", "@R12", "M=M+1"]
 
     s = parse_line("inc @r12")
     assert s is not None
@@ -178,6 +198,23 @@ def test_emit_instructions() -> None:
     s = parse_line("dec r12")
     assert s is not None
     assert emitter.emit_statement(s) == ["@R12", "M=M-1"]
+
+    s = parse_line("decd r12")
+    assert s is not None
+    assert emitter.emit_statement(s) == ["@R12", "M=M-1", "@R12", "M=M-1"]
+
+    s = parse_line("dec @r12")
+    assert s is not None
+    assert "D=D-1" in emitter.emit_statement(s)
+
+    # bit (Bit Test)
+    s = parse_line("bit r13, r12")
+    assert s is not None
+    assert emitter.emit_statement(s) == ["@R13", "D=M", "@R12", "D=D&M"]
+
+    s = parse_line("bit r13, @r12")
+    assert s is not None
+    assert "@__M2H_TMP_VAL" in emitter.emit_statement(s)
 
     s = parse_line("dec @r12")
     assert s is not None
@@ -420,6 +457,11 @@ def test_emit_errors() -> None:
     s = parse_line("br")
     assert s is not None
     with pytest.raises(ValueError, match="br requires 1 target"):
+        emitter.emit_statement(s)
+
+    s = parse_line("bit r1")
+    assert s is not None
+    with pytest.raises(ValueError, match="bit requires 2 operands"):
         emitter.emit_statement(s)
 
     s = parse_line("invalid_mnemonic r1")

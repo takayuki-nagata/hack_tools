@@ -51,8 +51,22 @@ class HackEmitter:
             return [f"@{sym}", "D=M"]
 
         if op.op_type == OperandType.IMMEDIATE:
-            val = sanitize_symbol(op.value)
-            return [f"@{val}", "D=A"]
+            val_str = op.value.strip()
+            try:
+                num = int(val_str, 0)
+                if num == 0:
+                    return ["@0", "D=A"]
+                if num == 1:
+                    return ["@1", "D=A"]
+                if num == -1:
+                    return ["D=-1"]
+                if num < 0:
+                    pos = -num
+                    return [f"@{pos}", "D=-A"]
+                return [f"@{num}", "D=A"]
+            except ValueError:
+                sym = sanitize_symbol(val_str)
+                return [f"@{sym}", "D=A"]
 
         if op.op_type == OperandType.INDIRECT:
             sym = reg_to_hack_symbol(op.value)
@@ -150,13 +164,12 @@ class HackEmitter:
             if len(ops) != 2:
                 raise ValueError(f"add requires 2 operands, got {len(ops)}")
             src, dst = ops[0], ops[1]
-            if (
-                src.op_type == OperandType.IMMEDIATE
-                and src.value == "1"
-                and dst.op_type == OperandType.REGISTER
-            ):
+            if src.op_type == OperandType.IMMEDIATE and dst.op_type == OperandType.REGISTER:
                 sym = reg_to_hack_symbol(dst.value)
-                return [f"@{sym}", "M=M+1"]
+                if src.value == "1":
+                    return [f"@{sym}", "M=M+1"]
+                if src.value == "-1":
+                    return [f"@{sym}", "M=M-1"]
             out.extend(self.emit_load_operand(src))
             if dst.op_type == OperandType.REGISTER:
                 sym = reg_to_hack_symbol(dst.value)
@@ -173,13 +186,12 @@ class HackEmitter:
             if len(ops) != 2:
                 raise ValueError(f"sub requires 2 operands, got {len(ops)}")
             src, dst = ops[0], ops[1]
-            if (
-                src.op_type == OperandType.IMMEDIATE
-                and src.value == "1"
-                and dst.op_type == OperandType.REGISTER
-            ):
+            if src.op_type == OperandType.IMMEDIATE and dst.op_type == OperandType.REGISTER:
                 sym = reg_to_hack_symbol(dst.value)
-                return [f"@{sym}", "M=M-1"]
+                if src.value == "1":
+                    return [f"@{sym}", "M=M-1"]
+                if src.value == "-1":
+                    return [f"@{sym}", "M=M+1"]
             out.extend(self.emit_load_operand(src))
             if dst.op_type == OperandType.REGISTER:
                 sym = reg_to_hack_symbol(dst.value)
@@ -268,30 +280,47 @@ class HackEmitter:
             out.extend(self.emit_store_operand(dst))
             return out
 
-        # 9. inc dst
-        if mn == "inc":
+        # 9. inc / incd dst
+        if mn in ("inc", "incd"):
             if len(ops) != 1:
-                raise ValueError(f"inc requires 1 operand, got {len(ops)}")
+                raise ValueError(f"{mn} requires 1 operand, got {len(ops)}")
             dst = ops[0]
+            step = 2 if mn == "incd" else 1
             if dst.op_type == OperandType.REGISTER:
                 sym = reg_to_hack_symbol(dst.value)
-                return [f"@{sym}", "M=M+1"]
+                return [f"@{sym}", "M=M+1"] * step
             out.extend(self.emit_load_operand(dst))
-            out.extend(["D=D+1"])
+            out.extend(["D=D+1"] * step)
             out.extend(self.emit_store_operand(dst))
             return out
 
-        # 10. dec dst
-        if mn == "dec":
+        # 10. dec / decd dst
+        if mn in ("dec", "decd"):
             if len(ops) != 1:
-                raise ValueError(f"dec requires 1 operand, got {len(ops)}")
+                raise ValueError(f"{mn} requires 1 operand, got {len(ops)}")
             dst = ops[0]
+            step = 2 if mn == "decd" else 1
             if dst.op_type == OperandType.REGISTER:
                 sym = reg_to_hack_symbol(dst.value)
-                return [f"@{sym}", "M=M-1"]
+                return [f"@{sym}", "M=M-1"] * step
             out.extend(self.emit_load_operand(dst))
-            out.extend(["D=D-1"])
+            out.extend(["D=D-1"] * step)
             out.extend(self.emit_store_operand(dst))
+            return out
+
+        # 10.5. bit src, dst (Bit Test: dst & src)
+        if mn == "bit":
+            if len(ops) != 2:
+                raise ValueError(f"bit requires 2 operands, got {len(ops)}")
+            src, dst = ops[0], ops[1]
+            out.extend(self.emit_load_operand(src))
+            if dst.op_type == OperandType.REGISTER:
+                sym = reg_to_hack_symbol(dst.value)
+                out.extend([f"@{sym}", "D=D&M"])
+            else:
+                out.extend(["@__M2H_TMP_VAL", "M=D"])
+                out.extend(self.emit_load_operand(dst))
+                out.extend(["@__M2H_TMP_VAL", "D=D&M"])
             return out
 
         # 11. inv dst (~dst)

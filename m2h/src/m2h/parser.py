@@ -77,15 +77,28 @@ def is_register(name: str) -> bool:
     return bool(re.match(r"^r(1[0-5]|[0-9])$", normalized))
 
 
+def normalize_immediate_expr(val: str) -> str:
+    """Normalize immediate expressions (e.g. llo(-1) -> -1, %lo(foo) -> foo, (4) -> 4)."""
+    s = val.strip()
+    # Strip %lo(...) / %hi(...) / llo(...) / hlo(...) / ll(...)
+    expr_match = re.match(r"^%?(?:llo|hlo|lo|hi|ll)\((.*)\)$", s, re.IGNORECASE)
+    if expr_match:
+        s = expr_match.group(1).strip()
+    # Strip surrounding parentheses (e.g. (-1) -> -1)
+    while s.startswith("(") and s.endswith(")"):
+        s = s[1:-1].strip()
+    return s
+
+
 def parse_operand(op_str: str) -> Operand:
     """Parse an operand string into an Operand object."""
     s = op_str.strip()
     if not s:
         raise ValueError("Empty operand string")
 
-    # Immediate: #123, #symbol, #-4
+    # Immediate: #123, #symbol, #-4, #llo(-1)
     if s.startswith("#"):
-        val = s[1:].strip()
+        val = normalize_immediate_expr(s[1:].strip())
         return Operand(op_type=OperandType.IMMEDIATE, value=val)
 
     # Indirect Autoincrement: @r4+

@@ -37,22 +37,24 @@ jobs:
 
   build-has-macos:
     name: "Build has (${{ matrix.name }})"
-    runs-on: ${{ matrix.os }}
+    runs-on: macos-latest
     strategy:
       matrix:
         include:
-          - os: macos-13
-            arch: x86_64
+          - arch: x86_64
             name: macOS x86_64
-          - os: macos-14
-            arch: arm64
+            cflags: "-std=c99 -Wall -Wextra -O2 -arch x86_64"
+            ldflags: "-arch x86_64"
+          - arch: arm64
             name: macOS Apple Silicon (arm64)
+            cflags: "-std=c99 -Wall -Wextra -O2 -arch arm64"
+            ldflags: "-arch arm64"
     steps:
       - name: "Checkout code"
         uses: actions/checkout@v4
 
       - name: "Build has binary"
-        run: make has CC=clang CFLAGS="-std=c99 -Wall -Wextra -O2"
+        run: make has CC=clang CFLAGS="${{ matrix.cflags }}" LDFLAGS="${{ matrix.ldflags }}"
 
       - name: "Package macOS tarball"
         run: |

@@ -5,6 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-08-24
+
+### Added
+- **`libm2h` Built-in Software Runtime Helper Library** (`m2h/src/m2h/runtime.py`):
+  - 16-bit integer multiplication (`__mspabi_mpyi`, `__mulhi3`) using software shift-and-add.
+  - 16-bit signed/unsigned integer division and modulo (`__m2h_udivmod`, `__mspabi_divi`, `__divhi3`, `__mspabi_divu`, `__udivhi3`, `__mspabi_remi`, `__modhi3`, `__mspabi_remu`, `__umodhi3`).
+  - Function epilogue callee-saved register restoration helpers (`__mspabi_func_epilog_1` through `__mspabi_func_epilog_7`) to support GCC `-O2` space optimization.
+  - 1-bit right shift helpers (`__m2h_rrc` for logical shift, `__m2h_rra` for arithmetic shift) and dynamic left shift (`__mspabi_slli`, `__ashlhi3`).
+- **16 Real-World End-to-End C Benchmark Suite** (`tests/c/`):
+  - Cooperative Mini-RTOS task scheduler (`rtos_scheduler.c`) with TCBs and function pointer dispatch.
+  - Data structures: Singly-linked list reversal (`struct_list.c`), Binary Search Tree (`recursion_tree.c`), Circular FIFO ring buffer (`ring_buffer.c`).
+  - Algorithms: In-place recursive QuickSort and binary search (`quicksort.c`), 2D matrix multiplication and 3x3 determinant (`matrix_ops.c`).
+  - String parsing: `my_atoi`, `my_itoa`, and tokenized arithmetic expression evaluator (`string_parser.c`).
+  - Bit manipulation & arithmetic boundary edge cases: Popcount, byte swap, power of two, sign extension, negative division/modulo (`bit_twiddling.c`, `math.c`).
+  - Control flow: Short-circuit evaluations (`&&`, `||`), nested loop `break`/`continue`/`goto`, and finite state machine (`control_flow.c`, `switch_dispatch.c`).
+  - Memory-mapped hardware I/O: Screen graphics and pixel bitmap manipulation (`screen_graphics.c`).
+- **Instruction Support in `m2h`**:
+  - Unsigned conditional jump instructions (`jlo`, `jhs`, `jc`, `jnc`).
+  - Indirect function call via registers (`call Rn`).
+  - Status flag manipulation and NOP instructions (`clrc`, `setc`, `clrn`, `setn`, `clrz`, `setz`, `dint`, `eint`, `nop`).
+- **Compiler Toolchain Integration**:
+  - `make install-msp430-gcc` target to download and install official TI MSP430 GCC 9.3.1.11 to `~/.local/msp430-gcc`.
+  - Automatic toolchain detection and version verification in `hcc` with warnings for outdated compilers.
+  - Automatic injection of optimal compilation flags (`-mmax-inline-shift=64`, `-fno-jump-tables`).
+
+### Changed
+- **Unified Downward Stack Growth**:
+  - Converted `push`, `pop`, `call`, `ret`, `crt0`, and epilogue helpers to downward stack growth (`RAM[16384]` downward) to match MSP430 GCC native frame layout (`0(SP)`).
+- **CI/CD Modernization**:
+  - Upgraded CI runners to `ubuntu-latest` with cached TI MSP430 GCC toolchain.
+
 ## [0.1.0] - 2026-08-22
 
 ### Added

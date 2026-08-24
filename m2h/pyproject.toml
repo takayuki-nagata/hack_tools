@@ -1,6 +1,6 @@
 [project]
 name = "m2h"
-version = "0.1.0"
+version = "0.2.0"
 description = "MSP430 to Hack assembly transpiler and Hack C compiler frontend"
 authors = [{ name = "Takayuki Nagata" }]
 readme = "README.md"

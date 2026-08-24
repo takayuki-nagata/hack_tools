@@ -12,9 +12,12 @@ __attribute__((noinline)) int is_digit(int ch) {
 }
 
 __attribute__((noinline)) int is_op(int ch) {
-    if (ch == '+') return 1;
-    if (ch == '-') return 2;
-    if (ch == '*') return 3;
+    if (ch == '+')
+        return 1;
+    if (ch == '-')
+        return 2;
+    if (ch == '*')
+        return 3;
     return 0;
 }
 
@@ -44,7 +47,8 @@ __attribute__((noinline)) int my_atoi(const int *s) {
 
     while (s[i] != 0) {
         int d = is_digit(s[i]);
-        if (d < 0) break;
+        if (d < 0)
+            break;
         res = res * 10 + d;
         i++;
     }
@@ -93,8 +97,10 @@ __attribute__((noinline)) int eval_simple_expr(const int *s) {
     int op = '+';
 
     while (s[i] != 0) {
-        while (s[i] == ' ') i++;
-        if (s[i] == 0) break;
+        while (s[i] == ' ')
+            i++;
+        if (s[i] == 0)
+            break;
 
         int op_type = is_op(s[i]);
         if (op_type != 0) {
@@ -106,14 +112,18 @@ __attribute__((noinline)) int eval_simple_expr(const int *s) {
         int num = 0;
         while (s[i] != 0) {
             int d = is_digit(s[i]);
-            if (d < 0) break;
+            if (d < 0)
+                break;
             num = num * 10 + d;
             i++;
         }
 
-        if (op == '+') acc += num;
-        else if (op == '-') acc -= num;
-        else if (op == '*') acc *= num;
+        if (op == '+')
+            acc += num;
+        else if (op == '-')
+            acc -= num;
+        else if (op == '*')
+            acc *= num;
     }
     return acc;
 }
@@ -122,11 +132,21 @@ int main(void) {
     // 1. Test atoi:
     // Build "-420" on stack buffer
     int s1[8];
-    s1[0] = ' '; s1[1] = ' '; s1[2] = '-'; s1[3] = '4'; s1[4] = '2'; s1[5] = '0'; s1[6] = 0;
+    s1[0] = ' ';
+    s1[1] = ' ';
+    s1[2] = '-';
+    s1[3] = '4';
+    s1[4] = '2';
+    s1[5] = '0';
+    s1[6] = 0;
     int n1 = my_atoi(s1); // -420
 
     int s2[8];
-    s2[0] = '1'; s2[1] = '0'; s2[2] = '2'; s2[3] = '4'; s2[4] = 0;
+    s2[0] = '1';
+    s2[1] = '0';
+    s2[2] = '2';
+    s2[3] = '4';
+    s2[4] = 0;
     int n2 = my_atoi(s2); // 1024
 
     // 2. Test itoa:
@@ -137,13 +157,23 @@ int main(void) {
     // 3. Test simple expression evaluator:
     // "10 + 20 * 3 - 15" -> (10 + 20) * 3 - 15 = 90 - 15 = 75
     int expr[32];
-    expr[0] = '1'; expr[1] = '0'; expr[2] = ' ';
-    expr[3] = '+'; expr[4] = ' ';
-    expr[5] = '2'; expr[6] = '0'; expr[7] = ' ';
-    expr[8] = '*'; expr[9] = ' ';
-    expr[10] = '3'; expr[11] = ' ';
-    expr[12] = '-'; expr[13] = ' ';
-    expr[14] = '1'; expr[15] = '5'; expr[16] = 0;
+    expr[0] = '1';
+    expr[1] = '0';
+    expr[2] = ' ';
+    expr[3] = '+';
+    expr[4] = ' ';
+    expr[5] = '2';
+    expr[6] = '0';
+    expr[7] = ' ';
+    expr[8] = '*';
+    expr[9] = ' ';
+    expr[10] = '3';
+    expr[11] = ' ';
+    expr[12] = '-';
+    expr[13] = ' ';
+    expr[14] = '1';
+    expr[15] = '5';
+    expr[16] = 0;
 
     int eval_res = eval_simple_expr(expr); // 75
 

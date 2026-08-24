@@ -22,12 +22,16 @@ __attribute__((noinline)) int test_short_circuit(int a, int b, int c, int d, int
 __attribute__((noinline)) int test_nested_loops_goto(void) {
     int total = 0;
     for (int i = 0; i < 10; i++) {
-        if (i == 2) continue;
-        if (i == 8) break;
+        if (i == 2)
+            continue;
+        if (i == 8)
+            break;
 
         for (int j = 0; j < 5; j++) {
-            if (j == 3) continue;
-            if (i == 5 && j == 2) goto jump_out;
+            if (j == 3)
+                continue;
+            if (i == 5 && j == 2)
+                goto jump_out;
             total += i * 10 + j;
         }
     }
@@ -37,21 +41,10 @@ jump_out:
 }
 
 __attribute__((noinline)) int test_ternary_chain(int val) {
-    return val > 100 ? 1 :
-           val > 50  ? 2 :
-           val > 20  ? 3 :
-           val > 0   ? 4 :
-           val == 0  ? 5 : -1;
+    return val > 100 ? 1 : val > 50 ? 2 : val > 20 ? 3 : val > 0 ? 4 : val == 0 ? 5 : -1;
 }
 
-typedef enum State {
-    ST_IDLE = 0,
-    ST_INIT,
-    ST_RUN,
-    ST_PAUSE,
-    ST_ERROR,
-    ST_DONE
-} State;
+typedef enum State { ST_IDLE = 0, ST_INIT, ST_RUN, ST_PAUSE, ST_ERROR, ST_DONE } State;
 
 __attribute__((noinline)) int test_state_machine(void) {
     State st = ST_IDLE;
@@ -61,29 +54,29 @@ __attribute__((noinline)) int test_state_machine(void) {
     while (st != ST_DONE && steps < 20) {
         steps++;
         switch (st) {
-            case ST_IDLE:
-                st = ST_INIT;
-                data += 1;
-                break;
-            case ST_INIT:
-                st = ST_RUN;
+        case ST_IDLE:
+            st = ST_INIT;
+            data += 1;
+            break;
+        case ST_INIT:
+            st = ST_RUN;
+            data += 10;
+            break;
+        case ST_RUN:
+            if (data < 35) {
                 data += 10;
-                break;
-            case ST_RUN:
-                if (data < 35) {
-                    data += 10;
-                    st = ST_PAUSE;
-                } else {
-                    st = ST_DONE;
-                }
-                break;
-            case ST_PAUSE:
-                data += 2;
-                st = ST_RUN;
-                break;
-            default:
-                st = ST_ERROR;
-                break;
+                st = ST_PAUSE;
+            } else {
+                st = ST_DONE;
+            }
+            break;
+        case ST_PAUSE:
+            data += 2;
+            st = ST_RUN;
+            break;
+        default:
+            st = ST_ERROR;
+            break;
         }
     }
     return (data * 100) + steps;
@@ -108,12 +101,12 @@ int main(void) {
     int loop = test_nested_loops_goto(); // 449
 
     // 3. Ternary chain:
-    int t1 = test_ternary_chain(150); // 1
-    int t2 = test_ternary_chain(75);  // 2
-    int t3 = test_ternary_chain(35);  // 3
-    int t4 = test_ternary_chain(10);  // 4
-    int t5 = test_ternary_chain(0);   // 5
-    int t6 = test_ternary_chain(-10); // -1
+    int t1 = test_ternary_chain(150);        // 1
+    int t2 = test_ternary_chain(75);         // 2
+    int t3 = test_ternary_chain(35);         // 3
+    int t4 = test_ternary_chain(10);         // 4
+    int t5 = test_ternary_chain(0);          // 5
+    int t6 = test_ternary_chain(-10);        // -1
     int t_sum = t1 + t2 + t3 + t4 + t5 + t6; // 1 + 2 + 3 + 4 + 5 - 1 = 14
 
     // 4. State machine:

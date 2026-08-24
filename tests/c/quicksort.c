@@ -77,10 +77,10 @@ int main(void) {
 
     // Binary search queries:
     int idx_neg50 = binary_search(arr, 10, -50); // 0
-    int idx_0     = binary_search(arr, 10, 0);   // 3
-    int idx_33    = binary_search(arr, 10, 33);  // 6
-    int idx_100   = binary_search(arr, 10, 100); // 9
-    int idx_miss  = binary_search(arr, 10, 999); // -1
+    int idx_0 = binary_search(arr, 10, 0);       // 3
+    int idx_33 = binary_search(arr, 10, 33);     // 6
+    int idx_100 = binary_search(arr, 10, 100);   // 9
+    int idx_miss = binary_search(arr, 10, 999);  // -1
 
     // Weighted checksum of sorted array:
     // sum(arr[i] * (i + 1))
@@ -93,7 +93,7 @@ int main(void) {
     }
 
     // Return total:
-    // is_sorted(1) + idx_neg50(0) + idx_0(3) + idx_33(6) + idx_100(9) + idx_miss(-1) + weighted_sum(2380)
-    // = 1 + 0 + 3 + 6 + 9 - 1 + 2380 = 2398
+    // is_sorted(1) + idx_neg50(0) + idx_0(3) + idx_33(6) + idx_100(9) + idx_miss(-1) +
+    // weighted_sum(2380) = 1 + 0 + 3 + 6 + 9 - 1 + 2380 = 2398
     return is_sorted + idx_neg50 + idx_0 + idx_33 + idx_100 + idx_miss + weighted_sum;
 }

@@ -48,5 +48,6 @@ int main(void) {
     clear_region(10, 1, 4);
     int val_cleared = SCREEN_BASE[10 * SCREEN_WIDTH_WORDS]; // 0
 
-    return (val_bar != 0) + (val_pix0 != 0) + (val_pix1 == 1) + (val_cleared == 0); // 1 + 1 + 1 + 1 = 4
+    return (val_bar != 0) + (val_pix0 != 0) + (val_pix1 == 1) +
+           (val_cleared == 0); // 1 + 1 + 1 + 1 = 4
 }

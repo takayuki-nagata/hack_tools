@@ -29,10 +29,10 @@ int main(void) {
     volatile int a = 100;
     volatile int b = 7;
 
-    int prod = multiply(x, y);          // 42
-    int quot = divide(a, b);            // 14
-    int rem = modulo(a, b);             // 2
-    int comp = complex_calc(x, y, a, b);// 12 + 21 + 50 + 2 = 85
+    int prod = multiply(x, y);           // 42
+    int quot = divide(a, b);             // 14
+    int rem = modulo(a, b);              // 2
+    int comp = complex_calc(x, y, a, b); // 12 + 21 + 50 + 2 = 85
 
-    return prod + quot + rem + comp;    // 58 + 85 = 143
+    return prod + quot + rem + comp; // 58 + 85 = 143
 }

@@ -17,12 +17,14 @@ __attribute__((noinline)) int ackermann(int m, int n) {
 int is_even(int n);
 
 __attribute__((noinline)) int is_odd(int n) {
-    if (n == 0) return 0;
+    if (n == 0)
+        return 0;
     return is_even(n - 1);
 }
 
 __attribute__((noinline)) int is_even(int n) {
-    if (n == 0) return 1;
+    if (n == 0)
+        return 1;
     return is_odd(n - 1);
 }
 
@@ -49,12 +51,14 @@ __attribute__((noinline)) void bst_insert(BSTNode **root, BSTNode *new_node) {
 }
 
 __attribute__((noinline)) int bst_sum_inorder(BSTNode *root) {
-    if (root == 0) return 0;
+    if (root == 0)
+        return 0;
     return bst_sum_inorder(root->left) + root->value + bst_sum_inorder(root->right);
 }
 
 __attribute__((noinline)) int bst_max_depth(BSTNode *root) {
-    if (root == 0) return 0;
+    if (root == 0)
+        return 0;
     int dl = bst_max_depth(root->left);
     int dr = bst_max_depth(root->right);
     return (dl > dr ? dl : dr) + 1;
@@ -79,12 +83,18 @@ int main(void) {
 
     // Keys: 50, 20, 70, 10, 30, 80
     // Values: 5, 2, 7, 1, 3, 8
-    nodes[0].key = 50; nodes[0].value = 5;
-    nodes[1].key = 20; nodes[1].value = 2;
-    nodes[2].key = 70; nodes[2].value = 7;
-    nodes[3].key = 10; nodes[3].value = 1;
-    nodes[4].key = 30; nodes[4].value = 3;
-    nodes[5].key = 80; nodes[5].value = 8;
+    nodes[0].key = 50;
+    nodes[0].value = 5;
+    nodes[1].key = 20;
+    nodes[1].value = 2;
+    nodes[2].key = 70;
+    nodes[2].value = 7;
+    nodes[3].key = 10;
+    nodes[3].value = 1;
+    nodes[4].key = 30;
+    nodes[4].value = 3;
+    nodes[5].key = 80;
+    nodes[5].value = 8;
 
     for (int i = 0; i < 6; i++) {
         bst_insert(&root, &nodes[i]);

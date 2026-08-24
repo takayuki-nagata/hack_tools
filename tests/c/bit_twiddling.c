@@ -19,7 +19,8 @@ __attribute__((noinline)) int bswap16(int val) {
 }
 
 __attribute__((noinline)) int is_power_of_two(int val) {
-    if (val <= 0) return 0;
+    if (val <= 0)
+        return 0;
     return (val & (val - 1)) == 0;
 }
 

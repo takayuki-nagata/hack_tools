@@ -76,11 +76,23 @@ m2h-mutation:
 	@cd m2h && uv run mutmut run || true
 	@cd m2h && uv run mutmut results
 
-# End-to-End Test for C compilation pipeline (requires gcc-msp430)
+MSP430_GCC_URL ?= https://dr-download.ti.com/software-development/ide-configuration-compiler-or-debugger/MD-LlCjWuAbzH/9.3.1.2/msp430-gcc-9.3.1.11_linux64.tar.bz2
+LOCAL_TOOLCHAIN_DIR ?= $(HOME)/.local/msp430-gcc
+LOCAL_BIN_DIR ?= $(HOME)/.local/bin
+
+install-msp430-gcc:
+	@echo "=== Downloading and installing MSP430 GCC 9.3.1.11 to $(LOCAL_TOOLCHAIN_DIR) ==="
+	@mkdir -p $(LOCAL_TOOLCHAIN_DIR) $(LOCAL_BIN_DIR)
+	@curl -fsSL $(MSP430_GCC_URL) | tar -xjf - -C $(LOCAL_TOOLCHAIN_DIR) --strip-components=1
+	@ln -sf $(LOCAL_TOOLCHAIN_DIR)/bin/msp430-elf-gcc $(LOCAL_BIN_DIR)/msp430-elf-gcc
+	@ln -sf $(LOCAL_TOOLCHAIN_DIR)/bin/msp430-elf-gcc $(LOCAL_BIN_DIR)/msp430-gcc
+	@echo "MSP430 GCC installed successfully. Ensure $(LOCAL_BIN_DIR) is in your PATH."
+
+# End-to-End Test for C compilation pipeline (requires gcc-msp430 or msp430-elf-gcc)
 e2e-test: all
 	@echo "=== Running End-to-End C Compilation Tests ==="
 	@mkdir -p test_out
-	@which msp430-gcc >/dev/null 2>&1 || (echo "msp430-gcc not found, skipping E2E C tests." && exit 0); \
+	@which msp430-gcc >/dev/null 2>&1 || which msp430-elf-gcc >/dev/null 2>&1 || [ -x $(LOCAL_BIN_DIR)/msp430-gcc ] || [ -x $(LOCAL_BIN_DIR)/msp430-elf-gcc ] || (echo "MSP430 GCC not found, skipping E2E C tests." && exit 0); \
 	for c_file in tests/c/*.c; do \
 		base=$$(basename "$$c_file" .c); \
 		echo "Compiling and assembling $$c_file -> test_out/$$base.hack ..."; \
@@ -133,4 +145,4 @@ clean:
 	rm -rf test_out tests/out *.gcno *.gcda *.gcov has/*.gcno has/*.gcda has/*.gcov tests/*.o tests/*.gcno tests/*.gcda tests/unit_test m2h/.coverage m2h/.pytest_cache m2h/.mypy_cache m2h/htmlcov
 
 .PHONY: all has test test-all coverage coverage-all sanitize format format-check format-all format-check-all lint lint-all install uninstall clean \
-        m2h-sync m2h-test m2h-coverage m2h-typecheck m2h-lint m2h-format m2h-format-check m2h-mutation e2e-test
+        m2h-sync m2h-test m2h-coverage m2h-typecheck m2h-lint m2h-format m2h-format-check m2h-mutation e2e-test install-msp430-gcc

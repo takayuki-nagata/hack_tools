@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 import pytest
 
-from m2h.driver import CompilerDriver, find_executable, run_command
+from m2h.driver import CompilerDriver, find_executable, get_compiler_version_info, run_command
 from m2h.hcc import main as hcc_main
 from m2h.hcc import normalize_opt_level
 
@@ -29,6 +29,43 @@ def test_find_executable() -> None:
         os.chmod(tf.name, 0o755)
         found = find_executable("custom_tool", fallback_paths=[tf.name])
         assert found == tf.name
+
+
+def test_get_compiler_version_info() -> None:
+    # Mock successful version output (9.3.1)
+    with patch("subprocess.run") as mock_run:
+        mock_run.return_value.stdout = "msp430-elf-gcc (Mitto Systems Limited) 9.3.1.11\n"
+        mock_run.return_value.stderr = ""
+        info = get_compiler_version_info("msp430-elf-gcc")
+        assert info is not None
+        major, minor, patch_v, first_line = info
+        assert major == 9
+        assert minor == 3
+        assert patch_v == 1
+        assert "9.3.1.11" in first_line
+
+    # Mock old version output (4.6.3)
+    with patch("subprocess.run") as mock_run:
+        mock_run.return_value.stdout = "msp430-gcc (GCC) 4.6.3 20120306\n"
+        mock_run.return_value.stderr = ""
+        info = get_compiler_version_info("msp430-gcc")
+        assert info is not None
+        assert info[0] == 4
+
+    # Mock empty / non-matching output
+    with patch("subprocess.run") as mock_run:
+        mock_run.return_value.stdout = ""
+        mock_run.return_value.stderr = ""
+        assert get_compiler_version_info("empty-cc") is None
+
+    with patch("subprocess.run") as mock_run:
+        mock_run.return_value.stdout = "Unknown compiler\n"
+        mock_run.return_value.stderr = ""
+        assert get_compiler_version_info("unknown-cc") is None
+
+    # Mock exception
+    with patch("subprocess.run", side_effect=OSError("fail")):
+        assert get_compiler_version_info("bad-cc") is None
 
 
 def test_run_command() -> None:
@@ -56,6 +93,28 @@ def test_driver_compile_errors(capsys: pytest.CaptureFixture[str]) -> None:
         ret = bad_driver.compile_c_to_hack(tf.name)
         assert ret == 1
         assert "not found in PATH" in capsys.readouterr().err
+
+
+def test_driver_compiler_version_warning(capsys: pytest.CaptureFixture[str]) -> None:
+    with tempfile.TemporaryDirectory() as tmpdir:
+        input_c = os.path.join(tmpdir, "main.c")
+        with open(input_c, "w", encoding="utf-8") as f:
+            f.write("int main(void) { return 0; }\n")
+
+        with (
+            patch("shutil.which", return_value="/usr/bin/msp430-gcc"),
+            patch(
+                "m2h.driver.get_compiler_version_info",
+                return_value=(4, 6, 3, "msp430-gcc 4.6.3"),
+            ),
+            patch("m2h.driver.run_command", return_value=0),
+            patch("m2h.driver.transpile_file", return_value=0),
+        ):
+            driver = CompilerDriver(cc="msp430-gcc", has="has")
+            ret = driver.compile_c_to_hack(input_c, output_path=os.path.join(tmpdir, "out.hack"))
+            assert ret == 0
+            err_output = capsys.readouterr().err
+            assert "warning: MSP430 GCC version '4.6.3' detected" in err_output
 
 
 def test_driver_compile_pipeline_mocked() -> None:

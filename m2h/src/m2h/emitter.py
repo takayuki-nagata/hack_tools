@@ -3,6 +3,8 @@
 
 """Hack assembly emitter for MSP430 statements."""
 
+import re
+
 from m2h.parser import Operand, OperandType, Statement
 
 
@@ -44,7 +46,7 @@ class HackEmitter:
         self.call_counter += 1
         return f"__RET_LBL_{self.call_counter}"
 
-    def emit_load_operand(self, op: Operand) -> list[str]:
+    def emit_load_operand(self, op: Operand, is_byte: bool = False) -> list[str]:
         """Load the value of an operand into the Hack D register."""
         if op.op_type == OperandType.REGISTER:
             sym = reg_to_hack_symbol(op.value)
@@ -65,6 +67,15 @@ class HackEmitter:
                     return [f"@{pos}", "D=-A"]
                 return [f"@{num}", "D=A"]
             except ValueError:
+                offset_m = re.match(r"^([a-zA-Z0-9_$.]+)\s*([+-])\s*(\d+)$", val_str)
+                if offset_m:
+                    base_sym = sanitize_symbol(offset_m.group(1))
+                    sign = offset_m.group(2)
+                    offset = int(offset_m.group(3))
+                    if sign == "+":
+                        return [f"@{base_sym}", "D=A", f"@{offset}", "D=D+A"]
+                    else:
+                        return [f"@{base_sym}", "D=A", f"@{offset}", "D=D-A"]
                 sym = sanitize_symbol(val_str)
                 return [f"@{sym}", "D=A"]
 
@@ -74,18 +85,42 @@ class HackEmitter:
 
         if op.op_type == OperandType.INDIRECT_AUTOINC:
             sym = reg_to_hack_symbol(op.value)
-            return [f"@{sym}", "A=M", "D=M", f"@{sym}", "M=M+1"]
+            if is_byte:
+                return [f"@{sym}", "A=M", "D=M", f"@{sym}", "M=M+1"]
+            return [f"@{sym}", "A=M", "D=M", f"@{sym}", "M=M+1", f"@{sym}", "M=M+1"]
 
         if op.op_type == OperandType.INDEXED:
             assert op.reg is not None
             sym = reg_to_hack_symbol(op.reg)
             if op.value == "0":
                 return [f"@{sym}", "A=M", "D=M"]
-            offset_sym = sanitize_symbol(op.value)
-            return [f"@{offset_sym}", "D=A", f"@{sym}", "A=D+M", "D=M"]
+            try:
+                num = int(op.value, 0)
+                if num == -1:
+                    load_offset = ["D=-1"]
+                elif num < 0:
+                    load_offset = [f"@{-num}", "D=-A"]
+                elif num == 1:
+                    load_offset = ["@1", "D=A"]
+                else:
+                    load_offset = [f"@{num}", "D=A"]
+            except ValueError:
+                offset_sym = sanitize_symbol(op.value)
+                load_offset = [f"@{offset_sym}", "D=A"]
+            return load_offset + [f"@{sym}", "A=D+M", "D=M"]
 
         if op.op_type == OperandType.ABSOLUTE:
-            sym = sanitize_symbol(op.value)
+            val_str = op.value.strip()
+            offset_m = re.match(r"^([a-zA-Z0-9_$.]+)\s*([+-])\s*(\d+)$", val_str)
+            if offset_m:
+                base_sym = sanitize_symbol(offset_m.group(1))
+                sign = offset_m.group(2)
+                offset = int(offset_m.group(3))
+                if sign == "+":
+                    return [f"@{base_sym}", "D=A", f"@{offset}", "A=D+A", "D=M"]
+                else:
+                    return [f"@{base_sym}", "D=A", f"@{offset}", "A=D-A", "D=M"]
+            sym = sanitize_symbol(val_str)
             return [f"@{sym}", "D=M"]
 
         raise ValueError(f"Unsupported operand type: {op.op_type}")
@@ -105,25 +140,60 @@ class HackEmitter:
             sym = reg_to_hack_symbol(op.reg)
             if op.value == "0":
                 return [f"@{sym}", "A=M", "M=D"]
-            offset_sym = sanitize_symbol(op.value)
-            return [
-                "@__M2H_TMP_VAL",
-                "M=D",
-                f"@{offset_sym}",
-                "D=A",
-                f"@{sym}",
-                "D=D+M",
-                "@__M2H_TMP_ADDR",
-                "M=D",
-                "@__M2H_TMP_VAL",
-                "D=M",
-                "@__M2H_TMP_ADDR",
-                "A=M",
-                "M=D",
-            ]
+            try:
+                num = int(op.value, 0)
+                if num == -1:
+                    load_offset = ["D=-1"]
+                elif num < 0:
+                    load_offset = [f"@{-num}", "D=-A"]
+                elif num == 1:
+                    load_offset = ["@1", "D=A"]
+                else:
+                    load_offset = [f"@{num}", "D=A"]
+            except ValueError:
+                offset_sym = sanitize_symbol(op.value)
+                load_offset = [f"@{offset_sym}", "D=A"]
+            return (
+                ["@__M2H_TMP_VAL", "M=D"]
+                + load_offset
+                + [
+                    f"@{sym}",
+                    "D=D+M",
+                    "@__M2H_TMP_ADDR",
+                    "M=D",
+                    "@__M2H_TMP_VAL",
+                    "D=M",
+                    "@__M2H_TMP_ADDR",
+                    "A=M",
+                    "M=D",
+                ]
+            )
 
         if op.op_type == OperandType.ABSOLUTE:
-            sym = sanitize_symbol(op.value)
+            val_str = op.value.strip()
+            offset_m = re.match(r"^([a-zA-Z0-9_$.]+)\s*([+-])\s*(\d+)$", val_str)
+            if offset_m:
+                base_sym = sanitize_symbol(offset_m.group(1))
+                sign = offset_m.group(2)
+                offset = int(offset_m.group(3))
+                if sign == "+":
+                    addr_calc = [f"@{base_sym}", "D=A", f"@{offset}", "D=D+A"]
+                else:
+                    addr_calc = [f"@{base_sym}", "D=A", f"@{offset}", "D=D-A"]
+                return (
+                    ["@__M2H_TMP_VAL", "M=D"]
+                    + addr_calc
+                    + [
+                        "@__M2H_TMP_ADDR",
+                        "M=D",
+                        "@__M2H_TMP_VAL",
+                        "D=M",
+                        "@__M2H_TMP_ADDR",
+                        "A=M",
+                        "M=D",
+                    ]
+                )
+            sym = sanitize_symbol(val_str)
             return [f"@{sym}", "M=D"]
 
         raise ValueError(f"Cannot store into operand type: {op.op_type}")
@@ -372,7 +442,7 @@ class HackEmitter:
                 out.extend(["@__M2H_TMP_VAL", "D=D-M"])
             return out
 
-        # 15. Conditional Jumps (jeq, jz, jne, jnz, jge, jl, jn, jmp)
+        # 15. Conditional Jumps (jeq, jz, jne, jnz, jge, jhs, jc, jl, jn, jnc, jlo, jmp)
         if mn in ("jeq", "jz"):
             if len(ops) != 1:
                 raise ValueError(f"{mn} requires 1 target operand")
@@ -385,13 +455,13 @@ class HackEmitter:
             target = sanitize_symbol(ops[0].value)
             return [f"@{target}", "D;JNE"]
 
-        if mn == "jge":
+        if mn in ("jge", "jhs", "jc"):
             if len(ops) != 1:
-                raise ValueError("jge requires 1 target operand")
+                raise ValueError(f"{mn} requires 1 target operand")
             target = sanitize_symbol(ops[0].value)
             return [f"@{target}", "D;JGE"]
 
-        if mn in ("jl", "jn"):
+        if mn in ("jl", "jn", "jnc", "jlo"):
             if len(ops) != 1:
                 raise ValueError(f"{mn} requires 1 target operand")
             target = sanitize_symbol(ops[0].value)
@@ -409,7 +479,7 @@ class HackEmitter:
                 raise ValueError("push requires 1 operand")
             src = ops[0]
             out.extend(self.emit_load_operand(src))
-            out.extend(["@SP", "A=M", "M=D", "@SP", "M=M+1"])
+            out.extend(["@SP", "M=M-1", "A=M", "M=D"])
             return out
 
         # 17. pop dst
@@ -417,7 +487,7 @@ class HackEmitter:
             if len(ops) != 1:
                 raise ValueError("pop requires 1 operand")
             dst = ops[0]
-            out.extend(["@SP", "M=M-1", "A=M", "D=M"])
+            out.extend(["@SP", "A=M", "D=M", "@SP", "M=M+1"])
             out.extend(self.emit_store_operand(dst))
             return out
 
@@ -425,24 +495,27 @@ class HackEmitter:
         if mn == "call":
             if len(ops) != 1:
                 raise ValueError("call requires 1 target operand")
-            fn_target = sanitize_symbol(ops[0].value)
+            target_op = ops[0]
             ret_lbl = self.next_return_label()
-            return [
+            push_ret = [
                 f"@{ret_lbl}",
                 "D=A",
                 "@SP",
+                "M=M-1",
                 "A=M",
                 "M=D",
-                "@SP",
-                "M=M+1",
-                f"@{fn_target}",
-                "0;JMP",
-                f"({ret_lbl})",
             ]
+            if target_op.op_type == OperandType.REGISTER:
+                sym = reg_to_hack_symbol(target_op.value)
+                return push_ret + [f"@{sym}", "A=M", "0;JMP", f"({ret_lbl})"]
+            if target_op.op_type in (OperandType.ABSOLUTE, OperandType.IMMEDIATE):
+                fn_target = sanitize_symbol(target_op.value)
+                return push_ret + [f"@{fn_target}", "0;JMP", f"({ret_lbl})"]
+            return push_ret + self.emit_load_operand(target_op) + ["A=D", "0;JMP", f"({ret_lbl})"]
 
         # 19. ret
         if mn == "ret":
-            return ["@SP", "M=M-1", "A=M", "A=M", "0;JMP"]
+            return ["@SP", "A=M", "D=M", "@SP", "M=M+1", "A=D", "0;JMP"]
 
         # 20. rla dst / rlc dst (dst = dst + dst / left shift 1 bit)
         if mn in ("rla", "rlc"):
@@ -457,7 +530,34 @@ class HackEmitter:
             out.extend(self.emit_store_operand(dst))
             return out
 
-        # 21. br target (branch)
+        # 21. rra dst / rrc dst (right shift 1 bit)
+        if mn in ("rra", "rrc"):
+            if len(ops) != 1:
+                raise ValueError(f"{mn} requires 1 operand, got {len(ops)}")
+            dst = ops[0]
+            helper_sym = f"__m2h_{mn}"
+            ret_label = self.next_return_label()
+            out.extend(self.emit_load_operand(dst))
+            out.extend(["@__M2H_LIB_IN", "M=D"])
+            out.extend(
+                [
+                    f"@{ret_label}",
+                    "D=A",
+                    "@SP",
+                    "M=M-1",
+                    "A=M",
+                    "M=D",
+                    f"@{helper_sym}",
+                    "0;JMP",
+                    f"({ret_label})",
+                    "@__M2H_LIB_RES",
+                    "D=M",
+                ]
+            )
+            out.extend(self.emit_store_operand(dst))
+            return out
+
+        # 22. br target (branch)
         if mn == "br":
             if len(ops) != 1:
                 raise ValueError("br requires 1 target operand")
@@ -472,9 +572,9 @@ class HackEmitter:
             out.extend(["A=D", "0;JMP"])
             return out
 
-        # 22. nop
-        if mn == "nop":
-            return ["// nop"]
+        # 23. Condition / Status flags and NOP (clrc, setc, clrn, setn, clrz, setz, dint, eint, nop)
+        if mn in ("clrc", "setc", "clrn", "setn", "clrz", "setz", "dint", "eint", "nop"):
+            return [f"// {mn}"]
 
         raise ValueError(f"Unsupported mnemonic: '{mn}' on line {stmt.line_number}")
 
@@ -488,9 +588,27 @@ class HackEmitter:
             lines.extend(generate_crt0())
             lines.append("")
 
+        referenced_symbols: set[str] = set()
+        for stmt in statements:
+            if stmt.mnemonic in ("rra", "rrc"):
+                referenced_symbols.add(f"__m2h_{stmt.mnemonic}")
+            for op in stmt.operands:
+                if op.value:
+                    referenced_symbols.add(op.value.strip())
+            if stmt.directive_args:
+                for arg in stmt.directive_args:
+                    referenced_symbols.add(arg.strip())
+
         for stmt in statements:
             emitted = self.emit_statement(stmt)
             if emitted:
                 lines.extend(emitted)
+
+        from m2h.runtime import get_required_runtime_routines
+
+        runtime_lines = get_required_runtime_routines(referenced_symbols)
+        if runtime_lines:
+            lines.append("")
+            lines.extend(runtime_lines)
 
         return "\n".join(lines) + "\n"

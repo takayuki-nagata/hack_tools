@@ -43,7 +43,7 @@ The transpiled program utilizes Hack's data memory (`RAM`) as follows:
 
 ```text
 +-----------------------+ 0x0000 (0)
-| SP (Stack Pointer)    | RAM[0]  -> Current top-of-stack address
+| SP (Stack Pointer)    | RAM[0]  -> Current top-of-stack address (initialized to 16384)
 | LCL (Local Base)      | RAM[1]
 | ARG (Argument Base)   | RAM[2]
 | THIS / THAT           | RAM[3] / RAM[4]
@@ -52,7 +52,7 @@ The transpiled program utilizes Hack's data memory (`RAM`) as follows:
 | Static & Global Vars  | RAM[16] .. RAM[255]
 | Temporary Variables   |
 +-----------------------+ 0x0100 (256)
-| Stack Area            | RAM[256] .. RAM[16383] (Stack grows upwards)
+| Stack Area            | RAM[256] .. RAM[16383] (Stack grows downwards from 16384)
 | (Local vars, frames)  |
 +-----------------------+ 0x4000 (16384)
 | SCREEN Memory Map     | RAM[16384] .. RAM[24575]
@@ -60,6 +60,13 @@ The transpiled program utilizes Hack's data memory (`RAM`) as follows:
 | KBD (Keyboard Input)  | RAM[24576]
 +-----------------------+
 ```
+
+> [!NOTE]
+> **Harvard Architecture & Initialized Global Data (`.data` / `.rodata`)**:
+> In the Hack CPU architecture, Instruction ROM (32 KW) and Data RAM (32 KW) are physically separate address spaces.
+> Global variables with static initializers (e.g. `int g_val = 10;`) and string literal pointers (`const char *str = "hello";`) reside in ROM (`.data` / `.rodata`) upon compilation.
+> Because Data RAM is uninitialized at reset, referencing global data pointers directly reads from uninitialized RAM (`0`).
+> For standalone Hack execution, it is recommended to initialize variables within local function scope (stack) or access memory-mapped I/O (e.g., `SCREEN`, `KBD`) directly.
 
 ---
 
@@ -181,25 +188,59 @@ The transpiled program utilizes Hack's data memory (`RAM`) as follows:
 | `cmp src, dst` | `dst - src` | Read `src` into `D` $\to$ `@dst; D=M-D` (leaves comparison in `D`) |
 | `jeq / jz label` | Jump if equal (`D == 0`) | `@label; D;JEQ` |
 | `jne / jnz label` | Jump if not equal (`D != 0`) | `@label; D;JNE` |
-| `jge label` | Jump if $\ge 0$ | `@label; D;JGE` |
-| `jl label` | Jump if $< 0$ | `@label; D;JLT` |
+| `jge label` | Jump if $\ge 0$ (signed) | `@label; D;JGE` |
+| `jl / jn label` | Jump if $< 0$ (signed) | `@label; D;JLT` |
+| `jhs / jc label` | Jump if higher or same / carry set | `@label; D;JGE` |
+| `jlo / jnc label` | Jump if lower / carry clear | `@label; D;JLT` |
 | `jmp label` | Unconditional jump | `@label; 0;JMP` |
-| `push src` | Push to stack | Read `src` into `D` $\to$ `@SP; A=M; M=D; @SP; M=M+1` |
-| `pop dst` | Pop from stack | `@SP; M=M-1; A=M; D=M` $\to$ Write `D` into `dst` |
-| `call #fn` / `call fn` | Call subroutine | `@RET_N; D=A; @SP; A=M; M=D; @SP; M=M+1; @fn; 0;JMP; (RET_N)` |
-| `ret` | Return from subroutine | `@SP; M=M-1; A=M; A=M; 0;JMP` |
+| `push src` | Push to stack (downward) | Read `src` into `D` $\to$ `@SP; M=M-1; A=M; M=D` |
+| `pop dst` | Pop from stack (downward) | `@SP; A=M; D=M; @SP; M=M+1` $\to$ Write `D` into `dst` |
+| `call #fn` / `call fn` | Call direct subroutine (downward) | `@RET_N; D=A; @SP; M=M-1; A=M; M=D; @fn; 0;JMP; (RET_N)` |
+| `call Rn` | Call indirect subroutine via register | `@RET_N; D=A; @SP; M=M-1; A=M; M=D; @Rn; A=M; 0;JMP; (RET_N)` |
+| `ret` | Return from subroutine | `@SP; A=M; D=M; @SP; M=M+1; A=D; 0;JMP` |
 | `rla dst` / `rlc dst` | Arithmetic left shift 1 bit (`dst += dst`) | Read `dst` into `D` $\to$ `D=D+D` $\to$ Write `D` into `dst` |
-| `br dst` | Branch to address/symbol | Read `dst` into `A` $\to$ `0;JMP` |
+| `rra dst` | Arithmetic right shift 1 bit | Via `__m2h_rra` runtime helper |
+| `rrc dst` | Logical right shift 1 bit | Via `__m2h_rrc` runtime helper |
+| `br dst` | Branch to address/symbol/register | Read `dst` into `A` $\to$ `0;JMP` |
+| `clrc`, `setc`, `dint`, `eint`, `nop` | Status flags & no-op | Handled as comments / no-ops (`// {mnemonic}`) |
 
 ---
 
-## 6. Startup Runtime (`crt0.asm`)
+## 6. Runtime Helper Library (`libm2h`)
+
+The `m2h` transpiler includes a zero-dependency built-in software runtime library that is automatically and on-demand linked when compiler-generated symbols are referenced:
+
+### 1. Integer Arithmetic Routines
+- **Multiplication (`__mspabi_mpyi`, `__mulhi3`)**:
+  Performs 16-bit unsigned/signed shift-and-add multiplication in software.
+  - Arguments: `R12` (multiplicand), `R13` (multiplier).
+  - Return value: `R12` (product).
+- **Division & Modulo (`__m2h_udivmod`, `__mspabi_divi`, `__divhi3`, `__mspabi_divu`, `__udivhi3`, `__mspabi_remi`, `__modhi3`, `__mspabi_remu`, `__umodhi3`)**:
+  Performs 16-bit non-restoring integer division and modulo with full sign correction for positive and negative operands.
+  - Arguments: `R12` (dividend / numerator), `R13` (divisor / denominator).
+  - Return value: `R12` (quotient or remainder).
+
+### 2. Shift Routines
+- **Variable Logical Left Shift (`__mspabi_slli`, `__ashlhi3`)**:
+  Shifts `R12` left by `R13` bits dynamically (`R12 = R12 << R13`).
+- **1-Bit Right Shift (`__m2h_rrc`, `__m2h_rra`)**:
+  - `__m2h_rrc`: Logical right shift 1 bit with zero MSB insertion.
+  - `__m2h_rra`: Arithmetic right shift 1 bit with sign bit preservation.
+
+### 3. Function Epilogue Helpers (`__mspabi_func_epilog_1` .. `7`)
+When GCC compiles with `-O2`, multi-register function epilogues jump to cascaded pop routines to minimize code footprint:
+- Cascaded popping of callee-saved registers (`R4`..`R10`) from the stack.
+- Final return from subroutine to the caller.
+
+---
+
+## 7. Startup Runtime (`crt0.asm`)
 
 Every standalone executable produced by `m2h` includes an initial startup sequence:
 
 ```assembly
-// Initialize Stack Pointer to RAM[256]
-@256
+// Initialize Stack Pointer to RAM[16384] (downward stack growth)
+@16384
 D=A
 @SP
 M=D
@@ -208,10 +249,9 @@ M=D
 @__HALT
 D=A
 @SP
+M=M-1
 A=M
 M=D
-@SP
-M=M+1
 @main
 0;JMP
 
@@ -223,12 +263,12 @@ M=M+1
 
 ---
 
-## 7. Optimal GCC Compilation Flags
+## 8. Optimal GCC Compilation Flags
 
 When using `hcc` or manually running `msp430-gcc`:
 
 ```bash
-msp430-gcc -std=c99 -S \
+msp430-gcc -mcpu=msp430 -mmax-inline-shift=64 -fno-jump-tables -std=c99 -S \
   -O2 \
   -ffreestanding \
   -fno-asynchronous-unwind-tables \
@@ -239,6 +279,9 @@ msp430-gcc -std=c99 -S \
   source.c -o source.s
 ```
 
+- `-mcpu=msp430`: Generates standard 16-bit MSP430 baseline instructions (supported in GCC 9.x+).
+- `-mmax-inline-shift=64`: Forces GCC to emit inline shift instructions rather than library calls (`__mspabi_slli_N`).
+- `-fno-jump-tables`: Generates comparison/branch trees for switch statements, avoiding Harvard Data RAM table lookups.
 - `-O2`: Enables register allocation, dead code elimination, and constant folding.
 - `-ffreestanding` & `-nostdlib`: Eliminates host standard library runtime dependencies.
 - `-fno-asynchronous-unwind-tables`: Disables DWARF CFI directives.

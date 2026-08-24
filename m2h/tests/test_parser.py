@@ -194,3 +194,17 @@ def test_parse_assembly_with_block_comments() -> None:
     assert stmts[1].label == "main"
     assert stmts[2].mnemonic == "mov"
     assert stmts[3].mnemonic == "ret"
+
+
+def test_parse_assembly_with_curly_brace_bundled_instructions() -> None:
+    source = """
+    cmp r12, r13 { jge .L2
+    mov #1, r12
+    ret
+    .L2:
+    mov #2, r12
+    ret
+    """
+    stmts = parse_assembly(source)
+    mnemonics = [s.mnemonic for s in stmts if s.mnemonic]
+    assert mnemonics == ["cmp", "jge", "mov", "ret", "mov", "ret"]

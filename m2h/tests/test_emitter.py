@@ -47,8 +47,17 @@ def test_emit_operands() -> None:
     assert emitter.emit_load_operand(Operand(OperandType.INDIRECT, "r5")) == ["@R5", "A=M", "D=M"]
     assert emitter.emit_store_operand(Operand(OperandType.INDIRECT, "r5")) == ["@R5", "A=M", "M=D"]
 
-    # Load Autoincrement
+    # Load Autoincrement (word by default +2, byte +1)
     assert emitter.emit_load_operand(Operand(OperandType.INDIRECT_AUTOINC, "r5")) == [
+        "@R5",
+        "A=M",
+        "D=M",
+        "@R5",
+        "M=M+1",
+        "@R5",
+        "M=M+1",
+    ]
+    assert emitter.emit_load_operand(Operand(OperandType.INDIRECT_AUTOINC, "r5"), is_byte=True) == [
         "@R5",
         "A=M",
         "D=M",
@@ -275,11 +284,27 @@ def test_emit_instructions() -> None:
     assert s is not None
     assert emitter.emit_statement(s) == ["@DOT_L2", "D;JGE"]
 
+    s = parse_line("jhs .L2")
+    assert s is not None
+    assert emitter.emit_statement(s) == ["@DOT_L2", "D;JGE"]
+
+    s = parse_line("jc .L2")
+    assert s is not None
+    assert emitter.emit_statement(s) == ["@DOT_L2", "D;JGE"]
+
     s = parse_line("jl .L2")
     assert s is not None
     assert emitter.emit_statement(s) == ["@DOT_L2", "D;JLT"]
 
     s = parse_line("jn .L2")
+    assert s is not None
+    assert emitter.emit_statement(s) == ["@DOT_L2", "D;JLT"]
+
+    s = parse_line("jlo .L2")
+    assert s is not None
+    assert emitter.emit_statement(s) == ["@DOT_L2", "D;JLT"]
+
+    s = parse_line("jnc .L2")
     assert s is not None
     assert emitter.emit_statement(s) == ["@DOT_L2", "D;JLT"]
 
@@ -290,11 +315,11 @@ def test_emit_instructions() -> None:
     # push / pop
     s = parse_line("push r12")
     assert s is not None
-    assert emitter.emit_statement(s) == ["@R12", "D=M", "@SP", "A=M", "M=D", "@SP", "M=M+1"]
+    assert emitter.emit_statement(s) == ["@R12", "D=M", "@SP", "M=M-1", "A=M", "M=D"]
 
     s = parse_line("pop r12")
     assert s is not None
-    assert emitter.emit_statement(s) == ["@SP", "M=M-1", "A=M", "D=M", "@R12", "M=D"]
+    assert emitter.emit_statement(s) == ["@SP", "A=M", "D=M", "@SP", "M=M+1", "@R12", "M=D"]
 
     # call / ret / nop
     s = parse_line("call #foo")
@@ -305,7 +330,7 @@ def test_emit_instructions() -> None:
 
     s = parse_line("ret")
     assert s is not None
-    assert emitter.emit_statement(s) == ["@SP", "M=M-1", "A=M", "A=M", "0;JMP"]
+    assert emitter.emit_statement(s) == ["@SP", "A=M", "D=M", "@SP", "M=M+1", "A=D", "0;JMP"]
 
     s = parse_line("nop")
     assert s is not None
@@ -452,6 +477,17 @@ def test_emit_errors() -> None:
     with pytest.raises(ValueError, match="call requires 1 target"):
         emitter.emit_statement(s)
 
+    s = parse_line("call r12")
+    assert s is not None
+    code = emitter.emit_statement(s)
+    assert "@R12" in code
+    assert "A=M" in code
+
+    s = parse_line("call 0(r4)")
+    assert s is not None
+    code = emitter.emit_statement(s)
+    assert "A=D" in code
+
     s = parse_line("rla")
     assert s is not None
     with pytest.raises(ValueError, match="rla requires 1 operand"):
@@ -467,6 +503,29 @@ def test_emit_errors() -> None:
     with pytest.raises(ValueError, match="bit requires 2 operands"):
         emitter.emit_statement(s)
 
+    s = parse_line("rra")
+    assert s is not None
+    with pytest.raises(ValueError, match="rra requires 1 operand"):
+        emitter.emit_statement(s)
+
+    # Condition / Status instructions
+    for cond in ("clrc", "setc", "clrn", "setn", "clrz", "setz", "dint", "eint", "nop"):
+        s = parse_line(cond)
+        assert s is not None
+        code = emitter.emit_statement(s)
+        assert f"// {cond}" in code
+
+    # Shift right instructions
+    s = parse_line("rra r12")
+    assert s is not None
+    code = emitter.emit_statement(s)
+    assert "@__m2h_rra" in code
+
+    s = parse_line("rrc 4(r1)")
+    assert s is not None
+    code = emitter.emit_statement(s)
+    assert "@__m2h_rrc" in code
+
     s = parse_line("invalid_mnemonic r1")
     assert s is not None
     with pytest.raises(ValueError, match="Unsupported mnemonic"):
@@ -481,6 +540,95 @@ def test_emit_program() -> None:
     stmts = parse_assembly(source)
     emitter = HackEmitter(include_crt0=True)
     asm = emitter.emit_program(stmts)
-    assert "@256" in asm
+    assert "@16384" in asm
     assert "@42" in asm
     assert "0;JMP" in asm
+
+
+def test_emit_operand_symbol_and_negative_offsets() -> None:
+    emitter = HackEmitter()
+
+    # Immediate with positive and negative symbol offsets
+    s1 = parse_line("mov #sym+4, r12")
+    assert s1 is not None
+    code1 = emitter.emit_statement(s1)
+    assert any("D=D+A" in line for line in code1)
+
+    s2 = parse_line("mov #sym-2, r12")
+    assert s2 is not None
+    code2 = emitter.emit_statement(s2)
+    assert any("D=D-A" in line for line in code2)
+
+    # Indexed load with -1, negative offset, 1, positive offset, symbol offset
+    s3 = parse_line("mov -1(r4), r12")
+    assert s3 is not None
+    code3 = emitter.emit_statement(s3)
+    assert "D=-1" in code3
+
+    s4 = parse_line("mov -4(r4), r12")
+    assert s4 is not None
+    code4 = emitter.emit_statement(s4)
+    assert "D=-A" in code4
+
+    s5 = parse_line("mov 1(r4), r12")
+    assert s5 is not None
+    code5 = emitter.emit_statement(s5)
+    assert "@1" in code5
+
+    s6 = parse_line("mov 4(r4), r12")
+    assert s6 is not None
+    code6 = emitter.emit_statement(s6)
+    assert "@4" in code6
+
+    s7 = parse_line("mov offset(r4), r12")
+    assert s7 is not None
+    code7 = emitter.emit_statement(s7)
+    assert "@offset" in code7
+
+    # Indexed store with -1, negative offset, 1, positive offset, symbol offset
+    s8 = parse_line("mov r12, -1(r4)")
+    assert s8 is not None
+    code8 = emitter.emit_statement(s8)
+    assert "D=-1" in code8
+
+    s9 = parse_line("mov r12, -4(r4)")
+    assert s9 is not None
+    code9 = emitter.emit_statement(s9)
+    assert "D=-A" in code9
+
+    s10 = parse_line("mov r12, 1(r4)")
+    assert s10 is not None
+    code10 = emitter.emit_statement(s10)
+    assert "@1" in code10
+
+    s11 = parse_line("mov r12, 4(r4)")
+    assert s11 is not None
+    code11 = emitter.emit_statement(s11)
+    assert "@4" in code11
+
+    s12 = parse_line("mov r12, offset(r4)")
+    assert s12 is not None
+    code12 = emitter.emit_statement(s12)
+    assert "@offset" in code12
+
+    # Absolute load with sym+offset and sym-offset
+    s13 = parse_line("mov &sym+4, r12")
+    assert s13 is not None
+    code13 = emitter.emit_statement(s13)
+    assert any("A=D+A" in line for line in code13)
+
+    s14 = parse_line("mov &sym-2, r12")
+    assert s14 is not None
+    code14 = emitter.emit_statement(s14)
+    assert any("A=D-A" in line for line in code14)
+
+    # Absolute store with sym+offset and sym-offset
+    s15 = parse_line("mov r12, &sym+4")
+    assert s15 is not None
+    code15 = emitter.emit_statement(s15)
+    assert any("D=D+A" in line for line in code15)
+
+    s16 = parse_line("mov r12, &sym-2")
+    assert s16 is not None
+    code16 = emitter.emit_statement(s16)
+    assert any("D=D-A" in line for line in code16)

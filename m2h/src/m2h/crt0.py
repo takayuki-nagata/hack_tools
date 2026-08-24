@@ -4,7 +4,7 @@
 """Runtime startup code generator (crt0) for Hack programs."""
 
 
-def generate_crt0(stack_start: int = 256, entry_point: str = "main") -> list[str]:
+def generate_crt0(stack_start: int = 16384, entry_point: str = "main") -> list[str]:
     """Generate Hack assembly startup sequence (crt0)."""
     return [
         "// === Runtime Startup (crt0) ===",
@@ -16,10 +16,9 @@ def generate_crt0(stack_start: int = 256, entry_point: str = "main") -> list[str
         "@__HALT",
         "D=A",
         "@SP",
+        "M=M-1",
         "A=M",
         "M=D",
-        "@SP",
-        "M=M+1",
         f"@{entry_point}",
         "0;JMP",
         "(__HALT)",

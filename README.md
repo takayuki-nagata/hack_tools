@@ -54,11 +54,17 @@ A zero-runtime-dependency transpiler written in Python (managed with `uv`) that 
 ### Requirements
 - C99 C compiler (`gcc` or `clang`)
 - Python 3.9+ and [`uv`](https://docs.astral.sh/uv/)
-- MSP430 GCC (`gcc-msp430` / `msp430-gcc`, optional for C compilation)
+- MSP430 GCC (TI MSP430 GCC 9.3.1+ recommended for C compilation via `hcc`)
 
 ### Build
 ```bash
 make
+```
+
+### Install MSP430 GCC Toolchain (Optional, for C compilation)
+```bash
+# Downloads and installs TI MSP430 GCC 9.3.1.11 into ~/.local/msp430-gcc
+make install-msp430-gcc
 ```
 
 ### Install `has`
@@ -132,6 +138,15 @@ make m2h-mutation
 ```bash
 make e2e-test
 ```
+Runs comprehensive verification against 16 real-world C benchmarks in `tests/c/`:
+- **RTOS & Concurrency**: Cooperative task scheduler (`rtos_scheduler.c`) with TCBs and function pointer dispatch.
+- **Data Structures**: Linked lists with reversal (`struct_list.c`), binary search trees (`recursion_tree.c`), circular queues (`ring_buffer.c`).
+- **Algorithms**: In-place QuickSort & binary search (`quicksort.c`), matrix multiplication & 3x3 determinant (`matrix_ops.c`).
+- **String & Expression Parsing**: Integer conversion (`atoi`/`itoa`) & arithmetic expression parser (`string_parser.c`).
+- **Bitwise & Arithmetic Boundaries**: Popcount, byte swap, power-of-two, sign extension, negative division/modulo (`bit_twiddling.c`, `math.c`).
+- **Control Flow**: Short-circuit logic, nested loop break/continue/goto, finite state machines (`control_flow.c`, `switch_dispatch.c`).
+- **Hardware I/O & Graphics**: Direct memory-mapped Screen RAM bitmap drawing (`screen_graphics.c`).
+- **Core Benchmarks**: Recursion (`fib.c`), arrays (`array.c`), comparisons (`max.c`), loops (`sum.c`).
 
 ---
 

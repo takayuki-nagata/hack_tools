@@ -13,6 +13,17 @@
 
 ---
 
+## Prerequisites
+
+- Python 3.9+ and [`uv`](https://docs.astral.sh/uv/)
+- TI MSP430 GCC 9.3.1+ (recommended for C compilation with `hcc`, install via `make install-msp430-gcc` from repository root)
+- `has` (Hack assembler, build with `make has` from repository root)
+
+> **Note on Initialized Global Variables**:
+> Due to the pure Harvard architecture of the Hack CPU (separate ROM and RAM), global variables with static initializers and string literals reside in ROM upon compilation. For standalone Hack execution, initialize variables within local function scope (stack) or access memory-mapped I/O (e.g. `SCREEN`, `KBD`) directly.
+
+---
+
 ## Quick Start
 
 ### 1. Compile C code directly with `hcc`

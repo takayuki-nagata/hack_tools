@@ -25,6 +25,25 @@ def find_executable(name: str, fallback_paths: Optional[list[str]] = None) -> Op
     return None
 
 
+def get_compiler_version_info(cc: str) -> Optional[tuple[int, int, int, str]]:
+    """Query compiler version by running `<cc> --version`."""
+    try:
+        proc = subprocess.run([cc, "--version"], capture_output=True, text=True, check=False)
+        output = proc.stdout if proc.stdout else proc.stderr
+        if not output:
+            return None
+        import re
+
+        match = re.search(r"(\d+)\.(\d+)\.(\d+)", output)
+        if match:
+            major, minor, patch = int(match.group(1)), int(match.group(2)), int(match.group(3))
+            first_line = output.splitlines()[0].strip()
+            return (major, minor, patch, first_line)
+    except Exception:
+        pass
+    return None
+
+
 def run_command(cmd: list[str]) -> int:
     """Run a subprocess command and stream stderr on failure."""
     try:
@@ -49,8 +68,22 @@ class CompilerDriver:
         cc: Optional[str] = None,
         has: Optional[str] = None,
     ) -> None:
-        # Resolve msp430-gcc
-        self.cc = cc or find_executable("msp430-gcc") or "msp430-gcc"
+        # Resolve msp430-gcc or msp430-elf-gcc
+        home_dir = os.path.expanduser("~")
+        local_bin = os.path.join(home_dir, ".local", "bin")
+        local_toolchain_bin = os.path.join(home_dir, ".local", "msp430-gcc", "bin")
+        fallback_ccs = [
+            os.path.join(local_bin, "msp430-elf-gcc"),
+            os.path.join(local_bin, "msp430-gcc"),
+            os.path.join(local_toolchain_bin, "msp430-elf-gcc"),
+            os.path.join(local_toolchain_bin, "msp430-gcc"),
+        ]
+        self.cc = (
+            cc
+            or find_executable("msp430-elf-gcc", fallback_paths=fallback_ccs)
+            or find_executable("msp430-gcc", fallback_paths=fallback_ccs)
+            or "msp430-gcc"
+        )
         # Resolve has
         # Check current directory / relative paths for builtin has
         script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -75,13 +108,27 @@ class CompilerDriver:
             return 1
 
         # Check compiler presence
-        if not shutil.which(self.cc):
+        resolved_cc = shutil.which(self.cc) or (
+            self.cc if (os.path.isfile(self.cc) and os.access(self.cc, os.X_OK)) else None
+        )
+        if not resolved_cc:
             sys.stderr.write(
                 f"hcc: error: MSP430 C compiler '{self.cc}' not found in PATH.\n"
-                "Please install gcc-msp430 "
-                "(e.g. 'sudo apt install gcc-msp430' or 'sudo dnf install msp430-gcc').\n"
+                "Please install TI MSP430 GCC "
+                "(run 'make install-msp430-gcc' or install gcc-msp430).\n"
             )
             return 1
+
+        # Check compiler version and warn if not recommended version (9.3.1 / 9.x+)
+        version_info = get_compiler_version_info(resolved_cc)
+        if version_info:
+            major, minor, patch_v, _ = version_info
+            if major < 9:
+                sys.stderr.write(
+                    f"hcc: warning: MSP430 GCC version '{major}.{minor}.{patch_v}' detected.\n"
+                    "Recommended version is TI MSP430 GCC 9.3.1.11.\n"
+                    "Run 'make install-msp430-gcc' to install the recommended toolchain.\n"
+                )
 
         base_name, _ = os.path.splitext(input_c_path)
         temp_dir = tempfile.mkdtemp(prefix="hcc_")
@@ -97,6 +144,9 @@ class CompilerDriver:
             # 1. Run msp430-gcc to produce MSP430 assembly (.s)
             gcc_cmd = [
                 self.cc,
+                "-mcpu=msp430",
+                "-mmax-inline-shift=64",
+                "-fno-jump-tables",
                 "-std=c99",
                 "-S",
                 opt_level,

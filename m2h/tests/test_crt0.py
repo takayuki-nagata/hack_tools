@@ -6,7 +6,7 @@ from m2h.crt0 import generate_crt0
 
 def test_generate_crt0_default() -> None:
     lines = generate_crt0()
-    assert "@256" in lines
+    assert "@16384" in lines
     assert "@SP" in lines
     assert "@main" in lines
     assert "(__HALT)" in lines

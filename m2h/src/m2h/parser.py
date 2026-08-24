@@ -221,8 +221,9 @@ def parse_line(line: str, line_number: int = 0) -> Optional[Statement]:
 def parse_assembly(source: str) -> list[Statement]:
     """Parse complete MSP430 assembly source text into statements."""
     source_no_block_comments = strip_block_comments(source)
+    normalized_source = source_no_block_comments.replace("{", "\n")
     statements: list[Statement] = []
-    for line_no, line in enumerate(source_no_block_comments.splitlines(), start=1):
+    for line_no, line in enumerate(normalized_source.splitlines(), start=1):
         stmt = parse_line(line, line_number=line_no)
         if stmt is not None:
             statements.append(stmt)
